@@ -200,7 +200,7 @@
         cursor: pointer;
       }
       .itemBody {
-        background: white !important;
+        background: white;
 /*        cursor: pointer; */
       }
       .itemBody:hover {
