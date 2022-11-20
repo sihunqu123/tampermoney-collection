@@ -178,7 +178,7 @@ function randomIntFromInterval(min, max) { // min and max included
 
 // randomIntFromInterval(1, 6)
 
-const fetchBT4GRetry = async (url, timesToRetry = 3) => {
+const fetchBTDIGRetry = async (url, timesToRetry = 3) => {
   let res = null;
   let body = null;
   try {

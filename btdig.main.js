@@ -1,24 +1,11 @@
 
-///@require https://github.com/mitchellmebane/GM_fetch/blob/master/GM_fetch.min.js
-
-// console.info(`=====path: ${JSON.stringify(unsafeWindow.location)}`);
 
 (function() {
     'use strict';
-    console.info(`=================bt4g hacked`);
+    console.info(`=================btdig hacked`);
     const serverHOST = '192.168.10.16';
     const serverPORT = 8180;
-    const website = 'bt4g';
-
-    window_ = unsafeWindow;
-
-    function inIframe () {
-      try {
-        return window.self !== window.top;
-      } catch (e) {
-        return true;
-      }
-    }
+    const website = 'btdig';
 
     if(inIframe()) return;
 
@@ -97,17 +84,17 @@
         // '/search/uncen/bysize/1'
 
 
-        const targetUl = document.querySelector("a[href^='/magnet/']").parentElement.parentElement.parentElement;
-        const countBefore = targetUl.childElementCount;
-        console.info(`beofre targetUl.childElementCount: ${countBefore}`);
+        const targetUl = document.querySelector("form[action='/search'] + div > div:nth-child(4)");
+
+        const countBefore = targetUl.querySelectorAll(".one_result").length;
+        console.info(`beofre change we have: ${countBefore} items`);
 
         let i = isForward ? (currentPageIndex + 1) : (currentPageIndex - 1);
         let document_ = null;
         let pagesToLoad = jumpSize;
-        let baseUrl = `https://bt4g.org/search/${searchTxt}/`;
-        if(orderBy) {
-            baseUrl += `${orderBy}/`;
-        }
+        let baseUrl = `https://www.btdig.com/search?q=${searchTxt}&order=${orderBy}&p=`;
+      
+
         let url = '';
         do {
             const pageNum = i;
@@ -117,76 +104,72 @@
               break;
             }
             if(statusCode != 200) {
-                console.error(`non-200/404 result: ${body}`);
-                showMsg(`run into error. Please check the console for details!`);
-                return;
+              console.error(`non-200/404 result: ${body}`);
+              showMsg(`run into error. Please check the console for details!`);
+              return;
             }
             const currentHTML = body;
             const document_ = htmlStrToDocument(currentHTML);
-            const aItems = Array.from(document_.querySelectorAll("a[href^='/magnet/']"));
+            const listItems = Array.from(document_.querySelectorAll("form[action='/search'] + div > div:nth-child(4) > *"));
             // added into the `page 1`(which is the first page) page.
             // targetUl.appendChild(...LIs);
             if(isForward) {
-                aItems.forEach(item => {
-                    const itemContainer = item.parentElement.parentElement;
-                    targetUl.appendChild(itemContainer);
-                });
+              listItems.forEach(item => {
+                  targetUl.appendChild(item);
+              });
             } else {
-                const anchorEle = document.querySelector("a[href^='/magnet/']").parentElement.parentElement
-                aItems.forEach(item => {
-                    const itemContainer = item.parentElement.parentElement;
-                    anchorEle.insertAdjacentElement('beforebegin', itemContainer);
-                });
+              const anchorEle = document.querySelector("form[action='/search'] + div > div:nth-child(4) > div:first-child");
+              listItems.forEach(item => {
+                  anchorEle.insertAdjacentElement('beforebegin', item);
+              });
             }
 
-            if(i <= 1 || --pagesToLoad < 1) {
+            if(i <= 0 || --pagesToLoad < 1) {
                 console.info(`reached the last page: ${pageNum}`);
                 break;
             }
             isForward ? i++ : i--;
         } while(true);
 
-        const countAfter = targetUl.childElementCount;
+        const countAfter = targetUl.querySelectorAll(".one_result").length;
         const msg = `Loaded another ${countAfter - countBefore} items from page ${currentPageIndex} to ${i}`;
-        console.info(`after targetUl.childElementCount: ${targetUl.childElementCount}`);
+        console.info(`after change we have: ${countAfter} items`);
         showMsg(msg);
         return i;
     };
 
+    /*
+     * Relevance: 0
+     * Age: 2
+     * Size: 3
+     * Files: 4
+     *
+     */
+    const extractParam = (href) => {
+        const matchedStr = href.match(/\?.*/)[0];
+        const queryArr = matchedStr.substr(1).split('&');
+        
+        const querys = {};
 
-    const extractParam = (path) => {
-        const arr = path.split('/');
-        if(arr.length === 4) { // order by time, which is the default one. e.g. '/search/uncen/1'
-            const searchTxt = arr[2];
-            const orderBy = '';
-            const pageIndex = parseInt(arr[3], 10);
-            return {
-                searchTxt,
-                orderBy,
-                pageIndex,
-            };
-        } else if(arr.length === 3) {
-            const searchTxt = arr[2];
-            const orderBy = '';
-            const pageIndex = 1;
-            return {
-                searchTxt,
-                orderBy,
-                pageIndex,
-            };
-        } else { // not order by time. e.g. '/search/uncen/bysize/1'
-            const searchTxt = arr[2];
-            const orderBy = arr[3];
-            const pageIndex = parseInt(arr[4], 10);
-            return {
-                searchTxt,
-                orderBy,
-                pageIndex,
-            };
-        }
+        queryArr.forEach(str => {
+          const arr = str.split('=');
+          const key = arr[0];
+          const value = arr[1];
+          querys[key] = value;
+        });
+        const { q, p, order} = querys;
+        const searchTxt = q;
+        const orderBy = order;
+        const pageIndex = p || 0; // start with 0
+
+        return {
+          searchTxt,
+          orderBy,
+          pageIndex,
+        };
     };
 
-    const { searchTxt, orderBy, pageIndex } = extractParam(window_.location.pathname + '');
+    const { searchTxt, orderBy, pageIndex } = extractParam(window_.location.href + '');
     let currentPageIndex = pageIndex;
     let currentPageIndexLeft = currentPageIndex;
     let currentPageIndexRight = currentPageIndex;
@@ -217,15 +200,19 @@
         cursor: pointer;
       }
       .itemBody {
-        background: white;
+        background: white !important;
 /*        cursor: pointer; */
       }
       .itemBody:hover {
-        background: #d2cce6;
+        background: #d2cce6 !important;
         cursor: pointer;
       }
       .CountToLoad {
         width: 50px !important;
+      }
+      .itemCheckDiv {
+        display: table-cell;
+        vertical-align: middle !important;
       }
 	`;
 
@@ -239,20 +226,30 @@
     loadCustomStyle();
 
     const getAllAIteams = () => {
-        return Array.from(document.querySelectorAll("a[href^='/magnet/']"));
+        return Array.from(document.querySelectorAll(".one_result"));
     };
+
+    const getCheckbox = (itemContainer) => {
+      return itemContainer.children[0].children[0];
+    };
+
+    const getMagnet = (itemContainer) => {
+      return itemContainer.querySelector('.torrent_magnet a').href;
+    };
+    
 
     window_.allCheck = () => {
         console.info(`in allCheck`);
         getAllAIteams().forEach(ele => {
-            ele.previousElementSibling.checked = true;
+            getCheckbox(ele).checked = true;
         });
     };
 
     window_.invertCheck = () => {
         console.info(`in invertCheck`);
         getAllAIteams().forEach(ele => {
-            ele.previousElementSibling.checked = !ele.previousElementSibling.checked;
+            const checkboxEle = getCheckbox(ele);
+            checkboxEle.checked = !checkboxEle.checked;
         });
     };
 
@@ -268,10 +265,11 @@
     window_.CopyCheckedLink = function() {
         console.info(`in CopyCheckedLink`);
         const resultTorrent = [];
-        const allA = getAllAIteams();
-        allA.forEach(ele => {
-            if(ele.previousElementSibling.checked) {
-                const newUrl = 'magnet:?xt=urn:btih:' + ele.href.match(/(?<=\/magnet\/)[^\/]+$/g)[0];
+        const allItems = getAllAIteams();
+        allItems.forEach(ele => {
+            const checkboxEle = getCheckbox(ele);
+            if(checkboxEle.checked) {
+                const newUrl = getMagnet(ele);
                 resultTorrent.push(newUrl);
                 //            ele.href = newUrl;
             }
@@ -287,25 +285,26 @@
 
     const patchA = () => {
       // find all a
-      const allA = Array.from(document.querySelectorAll("a[href^='/magnet/']:not([isPatched='true'])"));
-      allA.forEach(ele => {
-          // add a checkbox for each a
-          ele.insertAdjacentHTML('beforebegin', '<input type="checkbox" name="itemCheck" value="yes" class="itemCheck" onclick="onItemClick(event); return true;" />');
-          // add class for the checkbox to apply css
-          ele.parentElement.parentElement.classList.add("itemBody");
-          /* */
-          // add click on div to check/uncheck
-          ele.parentElement.parentElement.addEventListener('click', function(event) {
-              // event.preventDefault();
-              // ele.previousElementSibling.click();
-              if(event.target.name !== 'itemCheck') {
-                  ele.previousElementSibling.checked = !ele.previousElementSibling.checked;
-                  event.preventDefault();
-                  console.info(`ischecked? : ${ele.previousElementSibling.checked}`);
-              }
-          }, false);
-          // add mark to tell this a has been patched
-          ele.setAttribute('isPatched', 'true');
+      const allItems = Array.from(document.querySelectorAll(".one_result:not([isPatched='true'])"));
+      allItems.forEach(ele => {
+        // add a checkbox for each a
+        ele.insertAdjacentHTML('afterbegin', '<div class="itemCheckDiv"><input type="checkbox" name="itemCheck" value="yes" class="itemCheck" onclick="onItemClick(event); return true;" /></div>');
+        // add class for the checkbox to apply css
+        ele.classList.add("itemBody");
+        /* */
+        // add click on div to check/uncheck
+        ele.addEventListener('click', function(event) {
+          // event.preventDefault();
+          // ele.previousElementSibling.click();
+          if(event.target.name !== 'itemCheck') {
+            const checkboxEle = getCheckbox(ele);
+            checkboxEle.checked = !getCheckbox(ele).checked;
+            event.preventDefault();
+            console.info(`ischecked? : ${checkboxEle.checked}`);
+          }
+        }, false);
+        // add mark to tell this a has been patched
+        ele.setAttribute('isPatched', 'true');
       });
     };
 
@@ -367,6 +366,7 @@
     window_.loadNextPages = async function(_this) {
         console.info(`in loadNextPages();`);
         const isForward = true;
+        // read the CountToLoad from the previous input
         const count = _this.previousElementSibling.value;
         const jumpSize = Number.parseInt(count, 10);
         const newIndex = await loadMore(searchTxt, orderBy, isForward, currentPageIndexRight, jumpSize);
@@ -431,12 +431,19 @@
 <input type="button" name="loadToLastPage" value="loadToLastPage" class="loadPages" onClick="loadToLastPage()" />
     `;
 
-    document.querySelector("main > .container div:nth-child(4) > div > div > span").insertAdjacentHTML('beforebegin', checkActionBtns);
+//  const getAnchorElement = () => {
+//    const checkActionBtnPostion_top = document.querySelector("form[action='/search'] + div > div:nth-child(1)");
+//    const loadBtnPostion_top = document.querySelector("form[action='/search'] + div > div:nth-child(3)");
+//    document.querySelectorAll("form[action='/search'] + div > div:last-child");
+//
+//  };
 
-    document.querySelector("main > .container div:nth-child(4) > div > div > span").insertAdjacentHTML('beforeend', loadBtns);
+  // TODO
+    document.querySelector("form[action='/search'] + div > div:nth-child(1)").insertAdjacentHTML('afterbegin', checkActionBtns);
+    document.querySelector("form[action='/search'] + div > div:nth-child(3)").insertAdjacentHTML('afterbegin', loadBtns);
 
-    document.querySelector('.pagination').insertAdjacentHTML('beforebegin', checkActionBtns);
-    document.querySelector('.pagination').insertAdjacentHTML('beforeend', loadBtns);
+    document.querySelector("form[action='/search'] + div > div:last-child").insertAdjacentHTML('afterbegin', checkActionBtns);
+    document.querySelector("form[action='/search'] + div > div:last-child").insertAdjacentHTML('beforeend', loadBtns);
 
     patchA();
 })();
