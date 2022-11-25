@@ -13,12 +13,38 @@ function inIframe () {
   }
 }
 
+let refreshResolver = null;
 
 const refershToken = async(url) => {
-  const ifrm = document.createElement('iframe');
-  document.querySelector('body').appendChild(ifrm);
-  ifrm.setAttribute('src', url);
-  return sleepInMS(6000);
+  let refreshDiv = document.querySelector('.refreshDiv');
+  if(refreshDiv) {
+    refreshDiv.classList.remove('hiddenEle'); // show the refreshDiv
+  } else {
+    document.querySelector('body').insertAdjacentHTML('beforeend', `
+      <div class="refreshDiv">
+        <div class="refreshHeader">
+          <span class="refreshMsg">Please fix below Captcha!!!!!!!</span>
+          <input type="button" name="IFixedIt" value="IFixedIt" class="IFixedIt" onClick="IFixedIt()" />
+        </div>
+        <iframe class="refreshIframe"></iframe>
+      </div>
+    `);
+    refreshDiv = document.querySelector('.refreshDiv');
+  }
+  const refreshIframe = refreshDiv.querySelector('.refreshIframe');
+  const refreshPromise = new Promise(resolve => {
+    refreshResolver = resolve;
+  });
+  refreshIframe.setAttribute('src', url);
+  return refreshPromise;
+};
+
+window_.IFixedIt = async function(_this) {
+  console.info(`in IFixedIt();`);
+  const refreshDiv = document.querySelector('.refreshDiv');
+  refreshDiv.classList.add("hiddenEle"); // hide the refreshDiv
+  refreshResolver();
+  return true;
 };
 
 const showMsg = (str) => {
@@ -178,7 +204,7 @@ function randomIntFromInterval(min, max) { // min and max included
 
 // randomIntFromInterval(1, 6)
 
-const fetchBTDIGRetry = async (url, timesToRetry = 3) => {
+const fetchBT4GRetry = async (url, timesToRetry = 3) => {
   let res = null;
   let body = null;
   try {
@@ -193,16 +219,16 @@ const fetchBTDIGRetry = async (url, timesToRetry = 3) => {
     } else {
       --timesToRetry;
       if(timesToRetry >= 0) {
-        if(statusCode === 401 || statusCode === 403) { // refresh page
+        if(statusCode === 401 || statusCode === 403 || statusCode === 429) { // refresh page
           console.warn(`session expired, try to refresh token with iframe`);
           await sleepMS(randomIntFromInterval(1000, 5000));
           // TODO: how to refresh in nodejs?
           await refershToken(url);
-          return fetch(url, timesToRetry);
+          return fetchBT4GRetry(url, timesToRetry);
         }
         console.warn(`unexpected statusCode: ${res.status} when accessing: ${url}`);
         await sleepMS(randomIntFromInterval(1000, 5000));
-        return fetch(url, timesToRetry);
+        return fetchBT4GRetry(url, timesToRetry);
       }
 
       body = `Retry exceed for url: ${url} with statusCode: ${statusCode}`; 

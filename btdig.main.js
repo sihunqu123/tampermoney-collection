@@ -6,6 +6,8 @@
     const serverHOST = '192.168.10.16';
     const serverPORT = 8180;
     const website = 'btdig';
+    const requestIntervalLow = 1;
+    const requestIntervalHigh = 5;
 
     if(inIframe()) return;
 
@@ -77,8 +79,8 @@
     // testaaa();
 
     const loadMore = async(searchTxt, orderBy, isForward, currentPageIndex, jumpSize) => {
-        // const beginIndex = 2; // skip page one since it's already on page
-        //	const endIndex = 6;
+        const beginIndex = 0; // skip page one since it's already on first page
+        const endIndex = 100; // this site won't load page after this number
         // const orgName = 'phoenix-core';
 
         // '/search/uncen/bysize/1'
@@ -94,19 +96,26 @@
         let pagesToLoad = jumpSize;
         let baseUrl = `https://www.btdig.com/search?q=${searchTxt}&order=${orderBy}&p=`;
       
-
         let url = '';
+
+        let newCurrentPage = currentPageIndex;
         do {
             const pageNum = i;
+            if(i < beginIndex || --pagesToLoad < 0 || i > endIndex) {
+                console.info(`reached the last page: ${pageNum}`);
+                break;
+            }
+            await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
             url = baseUrl + pageNum;
             const { statusCode, body } = await fetchBT4GRetry(url);
-            if(statusCode === 404) { // edge page
+            if(statusCode === 404 || statusCode === 302) { // edge page
               break;
             }
             if(statusCode != 200) {
               console.error(`non-200/404 result: ${body}`);
               showMsg(`run into error. Please check the console for details!`);
-              return;
+              await sleepMS(4000);
+              break;
             }
             const currentHTML = body;
             const document_ = htmlStrToDocument(currentHTML);
@@ -123,19 +132,15 @@
                   anchorEle.insertAdjacentElement('beforebegin', item);
               });
             }
-
-            if(i <= 0 || --pagesToLoad < 1) {
-                console.info(`reached the last page: ${pageNum}`);
-                break;
-            }
+            newCurrentPage = i; // update the newCurrentPage when request done
             isForward ? i++ : i--;
         } while(true);
 
         const countAfter = targetUl.querySelectorAll(".one_result").length;
-        const msg = `Loaded another ${countAfter - countBefore} items from page ${currentPageIndex} to ${i}`;
+        const msg = `Loaded another ${countAfter - countBefore} items from page ${currentPageIndex} to ${newCurrentPage}`;
         console.info(`after change we have: ${countAfter} items`);
         showMsg(msg);
-        return i;
+        return newCurrentPage;
     };
 
     /*
@@ -146,27 +151,27 @@
      *
      */
     const extractParam = (href) => {
-        const matchedStr = href.match(/\?.*/)[0];
-        const queryArr = matchedStr.substr(1).split('&');
-        
-        const querys = {};
+      const matchedStr = href.match(/\?.*/)[0];
+      const queryArr = matchedStr.substr(1).split('&');
+      
+      const querys = {};
 
-        queryArr.forEach(str => {
-          const arr = str.split('=');
-          const key = arr[0];
-          const value = arr[1];
-          querys[key] = value;
-        });
-        const { q, p, order} = querys;
-        const searchTxt = q;
-        const orderBy = order;
-        const pageIndex = p || 0; // start with 0
+      queryArr.forEach(str => {
+        const arr = str.split('=');
+        const key = arr[0];
+        const value = arr[1];
+        querys[key] = value;
+      });
+      const { q, p, order} = querys;
+      const searchTxt = q;
+      const orderBy = order;
+      const pageIndex = p ? parseInt(p) : 0; // start with 0
 
-        return {
-          searchTxt,
-          orderBy,
-          pageIndex,
-        };
+      return {
+        searchTxt,
+        orderBy,
+        pageIndex,
+      };
     };
 
     const { searchTxt, orderBy, pageIndex } = extractParam(window_.location.href + '');
@@ -181,6 +186,9 @@
         style.type='text/css';
 
         const customCSS = `
+        .hiddenEle {
+          display: none !important;
+        }
 	  .itemCheck {
 			  width: 30px;
 		height: 30px;
@@ -214,7 +222,44 @@
         display: table-cell;
         vertical-align: middle !important;
       }
-	`;
+      .refreshDiv {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        z-index: 9999;
+        width: 90vw;
+        height: 90vh;
+        background-color: #547f52;    
+        opacity: 0.9;
+        margin: 5vh 5vw;
+        left: 0px;
+        top: 10px;
+      }
+      .refreshDiv  .refreshIframe {
+        width: 90vw;
+        height: calc(90vw - 100px);
+      }
+      .refreshDiv .refreshHeader {
+        width: 100%;
+        height: 100px;
+        line-height: 100px;
+        font-size: 85px;
+        text-align: center;
+        color: coral;
+        position: relative;
+      }
+      .refreshDiv .refreshHeader .refreshMsg{
+        color: red;
+      }
+      .IFixedIt {
+        height: 100%;
+        font-size: 30px;
+        display: flex;
+        position: absolute;
+        right: 0;
+        top: 0;
+      }
+  `;
 
         if(style.styleSheet){
             style.styleSheet.cssText=customCSS;
@@ -231,6 +276,11 @@
 
     const getCheckbox = (itemContainer) => {
       return itemContainer.children[0].children[0];
+    };
+
+    const revertCheckbox = (itemContainer) => {
+      const checkboxEle = getCheckbox(itemContainer);
+      checkboxEle.checked = !checkboxEle.checked;
     };
 
     const getMagnet = (itemContainer) => {
@@ -282,6 +332,50 @@
         showMsg(`Copied ${resultTorrent.length} items to Clipboard! ^_^`);
     };
 
+    const getElementIndexAmondSiblings = (ele) => {
+      var parent = ele.parentNode;
+      const retVal = Array.prototype.indexOf.call(parent.children, ele);
+      return retVal;
+    }
+
+    const itemOnclickHandler = (event, ele) => {
+      const lastClickedItems = Array.from(document.querySelectorAll(".one_result[isLastClickedItem='true']"));
+      console.info(event.shiftKey);
+      debugger;
+      if(event.shiftKey && lastClickedItems.length > 0) { // shift mode for multi-selection
+        const lastClickedItem = lastClickedItems[0];
+        // find the items between lastClickedItem and current element
+        // we add 1 since the index of :nth-child() selector in css seletor starts from 1, instead of 0
+        const lastClickedItemIndex = getElementIndexAmondSiblings(lastClickedItem) + 1;
+        const currentClickedItemIndex = getElementIndexAmondSiblings(ele) + 1;
+        // const siblings = Array.from(ele.parentNode.children);
+        let cssSelector = '';
+        if(lastClickedItemIndex < currentClickedItemIndex) {
+          cssSelector = `:scope > .one_result:nth-child(n+${lastClickedItemIndex + 1}):nth-child(-n+${currentClickedItemIndex})`;
+        } else {
+          cssSelector = `:scope > .one_result:nth-child(n+${currentClickedItemIndex}):nth-child(-n+${lastClickedItemIndex - 1})`;
+        }
+        const itemsToHandle = Array.from(ele.parentElement.querySelectorAll(cssSelector));
+        itemsToHandle.forEach(item => {
+          revertCheckbox(item);
+        });
+      } else { // single click mode
+
+        // clear the last clicked item mark
+        lastClickedItems.forEach(item => {
+          item.setAttribute('isLastClickedItem', 'false');
+        });
+        revertCheckbox(ele);
+        // event.preventDefault();
+        // console.info(`ischecked? : ${checkboxEle.checked}`);
+        // set the last clicked item mark
+        ele.setAttribute('isLastClickedItem', 'true');
+      }
+      event.preventDefault();
+
+
+    };
+
 
     const patchA = () => {
       // find all a
@@ -297,10 +391,7 @@
           // event.preventDefault();
           // ele.previousElementSibling.click();
           if(event.target.name !== 'itemCheck') {
-            const checkboxEle = getCheckbox(ele);
-            checkboxEle.checked = !getCheckbox(ele).checked;
-            event.preventDefault();
-            console.info(`ischecked? : ${checkboxEle.checked}`);
+            itemOnclickHandler(event, ele);
           }
         }, false);
         // add mark to tell this a has been patched
@@ -308,32 +399,25 @@
       });
     };
 
-    const sleepInMS = async(numInMs) => {
-        return new Promise(resove => {
-            setTimeout(() => {
-                resolve();
-            }, numInMs);
-        });
-    };
-
     const fetchSelectFileList = async() => {
 
-      const allA = Array.from(document.querySelectorAll("a[href^='/magnet/']:not([isFetched='true'])"));
-      const selectedA = allA.filter(ele => {
-        if(ele.previousElementSibling.checked) {
+      const allItems = Array.from(document.querySelectorAll(".one_result:not([isFetched='true'])"));
+      const selectedItem = allItems.filter(ele => {
+        if(getCheckbox(ele).checked) {
            return true;
         }
         return false;
       });
-      const length = selectedA.length;
+      const length = selectedItem.length;
       for(let i = 0; i < length; i++) {
         if(i % 10 === 0) {
-          const progress = (i / length).toFixed(2);
+          const progress = ((i / length) * 100).toFixed(2);
           showMsg(`fetch filelist inprogress... ${progress}%`);
         }
-        const ele = selectedA[i];
-        const torrentInfo = extractTorrentInfo(ele.parentElement.parentElement);
+        const ele = selectedItem[i];
+        const torrentInfo = extractTorrentInfo(ele);
         await fetchTorrentDetails(torrentInfo);
+        await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
         torrents[torrentInfo.torrentHref] = torrentInfo;
         ele.setAttribute('isFetched', 'true');
       }
@@ -399,6 +483,7 @@
         torrents,
       };
 
+//    debugger;
       showMsg(`postToBackend start... ^_^`);
       const { statusCode, body } = await postRetry(url, postData);
       console.info(`postResponse: statusCode: ${statusCode}, body: ${body}`);
@@ -424,7 +509,7 @@
 
     const loadBtns = `
 <br />
-<input type="button" name="loadToPage1" value="loadToPage1" class="loadPages" onClick="loadToPage1()" />
+<input type="button" name="loadToPage1" value="loadToFirstPage" class="loadPages" onClick="loadToPage1()" />
 <input type="button" name="loadPrevPages" value="loadPrevPages" class="loadPages" onClick="loadPrevPages(this)" />
 <input type="text" id="CountToLoad" value="5" class="CountToLoad" />
 <input type="button" name="loadNextPages" value="loadNextPages" class="loadPages" onClick="loadNextPages(this)" />

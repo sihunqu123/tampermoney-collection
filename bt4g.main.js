@@ -90,8 +90,8 @@
     // testaaa();
 
     const loadMore = async(searchTxt, orderBy, isForward, currentPageIndex, jumpSize) => {
-        // const beginIndex = 2; // skip page one since it's already on page
-        //	const endIndex = 6;
+        const beginIndex = 0; // skip page one since it's already on first page
+        const endIndex = 70; // this site won't load page after this number
         // const orgName = 'phoenix-core';
 
         // '/search/uncen/bysize/1'
@@ -109,17 +109,25 @@
             baseUrl += `${orderBy}/`;
         }
         let url = '';
+        let newCurrentPage = currentPageIndex;
+
         do {
             const pageNum = i;
+            if(i < beginIndex || --pagesToLoad < 0 || i > endIndex) {
+                console.info(`reached the last page: ${pageNum}`);
+                break;
+            }
+
             url = baseUrl + pageNum;
             const { statusCode, body } = await fetchBT4GRetry(url);
             if(statusCode === 404) { // edge page
               break;
             }
             if(statusCode != 200) {
-                console.error(`non-200/404 result: ${body}`);
-                showMsg(`run into error. Please check the console for details!`);
-                return;
+              console.error(`non-200/404 result: ${body}`);
+              showMsg(`run into error. Please check the console for details!`);
+              await sleepMS(4000);
+              break;
             }
             const currentHTML = body;
             const document_ = htmlStrToDocument(currentHTML);
@@ -138,19 +146,15 @@
                     anchorEle.insertAdjacentElement('beforebegin', itemContainer);
                 });
             }
-
-            if(i <= 1 || --pagesToLoad < 1) {
-                console.info(`reached the last page: ${pageNum}`);
-                break;
-            }
+            newCurrentPage = i; // update the newCurrentPage when request done
             isForward ? i++ : i--;
         } while(true);
 
         const countAfter = targetUl.childElementCount;
-        const msg = `Loaded another ${countAfter - countBefore} items from page ${currentPageIndex} to ${i}`;
+        const msg = `Loaded another ${countAfter - countBefore} items from page ${currentPageIndex} to ${newCurrentPage}`;
         console.info(`after targetUl.childElementCount: ${targetUl.childElementCount}`);
         showMsg(msg);
-        return i;
+        return newCurrentPage;
     };
 
 
@@ -227,7 +231,32 @@
       .CountToLoad {
         width: 50px !important;
       }
-	`;
+      .refreshDiv {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        z-index: 9999;
+        width: 90vw;
+        height: 90vh;
+        background-color: #547f52;    
+        opacity: 0.9;
+        margin: 5vh 5vw;
+        left: 0px;
+        top: 10px;
+      }
+      .refreshDiv  iframe {
+        width: 90vw;
+        height: calc(90vw - 100px);
+      }
+      .refreshDiv .refreshMsg {
+        width: 100%;
+        height: 100px;
+        line-height: 100px;
+        font-size: 85px;
+        text-align: center;
+        color: coral;
+      }
+  `;
 
         if(style.styleSheet){
             style.styleSheet.cssText=customCSS;
@@ -307,14 +336,6 @@
           // add mark to tell this a has been patched
           ele.setAttribute('isPatched', 'true');
       });
-    };
-
-    const sleepInMS = async(numInMs) => {
-        return new Promise(resove => {
-            setTimeout(() => {
-                resolve();
-            }, numInMs);
-        });
     };
 
     const fetchSelectFileList = async() => {
@@ -424,7 +445,7 @@
 
     const loadBtns = `
 <br />
-<input type="button" name="loadToPage1" value="loadToPage1" class="loadPages" onClick="loadToPage1()" />
+<input type="button" name="loadToPage1" value="loadToFirstPage" class="loadPages" onClick="loadToPage1()" />
 <input type="button" name="loadPrevPages" value="loadPrevPages" class="loadPages" onClick="loadPrevPages(this)" />
 <input type="text" id="CountToLoad" value="5" class="CountToLoad" />
 <input type="button" name="loadNextPages" value="loadNextPages" class="loadPages" onClick="loadNextPages(this)" />

@@ -10,7 +10,7 @@ const htmlStrToDocument = (str) => {
 };
 
 const stringToMB = (str) => {
-  if(str === '0' str === '0.0') {
+  if(str === '0' || str === '0.0') {
     return 0;
   }
   const num = Number.parseFloat(`${str.match(/^\d+\.?\d*/g)}`, 10);
@@ -41,13 +41,19 @@ const stringToMB = (str) => {
   return retVal;
 };
 
-const innerText = (ele) => ele.innerText || ele.textContent;
+const innerText = (ele) => {
+  if(!ele) {
+    console.error(`ele is null!!!`);
+    throw new Error(`ele is null!!!`);
+  }
+  return (ele.innerText || ele.textContent).trim();
+};
 
 const extractFileInfo = (liDom) => {
-  const fileName = liDom.childNodes[0].textContent.replaceAll('\n', '').trim();
+  const fileName = liDom.textContent.replaceAll('\n', '').trim();
   const matchResult = fileName.match(/\.[^.]+$/);
   const extension = matchResult ? matchResult[0] : '';
-  const fileSize = innerText(liDom.querySelector(':scope > span')).trim();
+  const fileSize = innerText(liDom.nextElementSibling).trim();
   const fileSizeInMB = stringToMB(fileSize);
   return {
     fileName,
@@ -60,22 +66,78 @@ const extractFileInfo = (liDom) => {
 const MAGNET_PREFIX = 'magnet:?xt=urn:btih:'; // eslint-disable-line no-unused-vars
 // Common variable end
 
+const extractCreateTime = (str) => {
+  // ['4', 'hours', 'ago']
+  const arr = str.split(/\s+/);
+  const number = Number.parseInt(arr[1], 10);
+  const unit = arr[2].toLowerCase();
+  const now = new Date();
+  switch (unit) {
+    case 'hour':
+    case 'hours':
+      now.setHours(now.getHours() - number);
+      break;
+    case 'day':
+    case 'days':
+      now.setDate(now.getDate() - number);
+      break;
+    case 'week':
+    case 'weeks':
+      now.setDate(now.getDate() - (number * 7));
+      break;
+    case 'month':
+    case 'months':
+      now.setMonth(now.getMonth() - number);
+      break;
+    case 'year':
+    case 'years':
+      now.setFullYear(now.getFullYear() - number);
+      break;
+    default:
+      console.error(`no unit matched - unit: ${unit}`);
+      break;
+  }
+  try {
+    const retVal =  now.toISOString().replace('T', ' ').replace('Z', '').replace(/\..+/, '');
+    return retVal;
+  } catch(e) {
+    console.error(e);
+    throw e;
+  }
+};
+
 const extractTorrentInfo = (ele) => {
-  const torrentName = innerText(ele.querySelector('h5:nth-child(1)'));
-  const torrentHref = ele.querySelector('h5:nth-child(1) > a').href.match(/(?<=\/magnet\/)[^/]+$/g)[0];
-  const torrentDetailLink = `https://bt4g.org/magnet/${torrentHref}`;
-  const torrentType = innerText(ele.querySelector(':scope > span:nth-of-type(1)'));
+  const torrentName = innerText(ele.querySelector('.torrent_name'));
+  const torrentHrefFull = ele.querySelector('.torrent_magnet a').href.trim().substr(MAGNET_PREFIX.length);
+  const torrentHref = torrentHrefFull.match('^[^&]+')[0];
+  const torrentDetailLink = ele.querySelector('.torrent_name > a').href;
+  // hardcoding since there is no such info for this site
+  const torrentType = 'VIDEO';
 
-  const torrentCreateTime = innerText(ele.querySelector(':scope > span:nth-of-type(2) > b'));
-  const torrentFileCnt = innerText(ele.querySelector(':scope > span:nth-of-type(3) > b'));
-  const needToFetchFileList = torrentFileCnt > 3;
-  const torrentSize = innerText(ele.querySelector(':scope > span:nth-of-type(4) > b'));
-  const torrentSeeders = innerText(ele.querySelector(':scope > span:nth-of-type(5) > b'));
-  const torrentLeechers = innerText(ele.querySelector(':scope > span:nth-of-type(6) > b'));
+  // ing.............
+  // found 4 hours ago
+  const torrentCreateTime_txt = innerText(ele.querySelector('span.torrent_age'));
+  const torrentCreateTime = extractCreateTime(torrentCreateTime_txt);
+  
+  const torrentSize = innerText(ele.querySelector('.torrent_size'));
+  // hardcoding since there is no such info for this site
+  const torrentSeeders = 0;
+  const torrentLeechers = 0;
 
-  const fileLIs = Array.from(ele.querySelectorAll(':scope > ul > li'));
+  const hasHiddenFile = !!ele.querySelector('.torrent_excerpt a');
+  const needToFetchFileList = hasHiddenFile;
+
+  const fileLIs = Array.from(ele.querySelectorAll('.torrent_excerpt > div:not(.fa-folder-open):not(.fa-plus-circle)'));
 
   const filesPartial = fileLIs.map((fileItem) => extractFileInfo(fileItem));
+
+  const fileCountEle = ele.querySelector('.torrent_files');
+  let torrentFileCnt = 0;
+  if(fileCountEle ) {
+    torrentFileCnt = innerText(fileCountEle);
+  } else {
+    filesPartial.length;
+  }
 
   let torrentTypeInt = 0;
 
@@ -108,6 +170,7 @@ const extractTorrentInfo = (ele) => {
   return {
     torrentName,
     torrentHref,
+    torrentHrefFull,
     torrentDetailLink,
     torrentType,
     torrentTypeInt,
@@ -117,6 +180,7 @@ const extractTorrentInfo = (ele) => {
     torrentSizeInMB,
     torrentSeeders,
     torrentLeechers,
+    needToFetchFileList,
     filesPartial,
   };
 };
@@ -135,9 +199,8 @@ const extractTorrentList = (htmlStr) => {
 const extractFiles = (htmlStr) => {
   const document_ = htmlStrToDocument(htmlStr);
 
-  const fileLIs = Array.from(document_.querySelectorAll('main > .container > .row:nth-of-type(2) > .col.s12 > table:nth-of-type(5) li'));
+  const fileLIs = Array.from(document_.querySelectorAll('form + div tbody > tr:last-child > td > div:not(.fa-folder-open):not(.fa-plus-circle)'));
   const files = fileLIs.map((fileItem) => extractFileInfo(fileItem));
   // console.info(JSON.stringify(files, null, 2));
   return files;
 };
-

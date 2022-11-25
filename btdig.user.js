@@ -11,10 +11,10 @@
 // @grant       GM_cookie
 // @grant       GM.cookie
 // @grant       GM_xmlhttpRequest
-// @require      https://raw.githubusercontent.com/sihunqu123/tampermoney-collection/master/util/commonUtil.js
-// @require      https://raw.githubusercontent.com/sihunqu123/tampermoney-collection/master/util/domUtil.js
-// @require      https://raw.githubusercontent.com/sihunqu123/tampermoney-collection/master/util/torrentUtil.js
-// @require      https://raw.githubusercontent.com/sihunqu123/tampermoney-collection/master/btdig.main.js
+// @require      file://C:\github\tampermoney-collection\util\commonUtil-btdig.js
+// @require      file://C:\github\tampermoney-collection\util\domUtil-btdig.js
+// @require      file://C:\github\tampermoney-collection\util\torrentUtil.js
+// @require      file://C:\github\tampermoney-collection\btdig.main.js
 // ==/UserScript==
 
 // @require      file://C:\path\to\userscript.user.js
@@ -24,3 +24,7 @@
 // @require      file://C:\github\tampermoney-collection\util\domUtil.js
 // @require      file://C:\github\tampermoney-collection\util\torrentUtil.js
 // @require      file://C:\github\tampermoney-collection\btdig.main.js
+// @require      https://raw.githubusercontent.com/sihunqu123/tampermoney-collection/master/util/commonUtil.js
+// @require      https://raw.githubusercontent.com/sihunqu123/tampermoney-collection/master/util/domUtil-btdig.js
+// @require      https://raw.githubusercontent.com/sihunqu123/tampermoney-collection/master/util/torrentUtil.js
+// @require      https://raw.githubusercontent.com/sihunqu123/tampermoney-collection/master/btdig.main.js

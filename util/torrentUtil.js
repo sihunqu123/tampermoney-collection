@@ -1,7 +1,7 @@
 'use strict';
 
 const fetchTorrentDetails = async (torrent) => {
-  if(torrent.torrentFileCnt < 4) {
+  if(!torrent.needToFetchFileList) {
     console.debug(`no need to fetch file list for ${torrent.torrentName}, since torrent.torrentFileCnt is ${torrent.torrentFileCnt}`);
     torrent.files = torrent.filesPartial;
     return torrent;
