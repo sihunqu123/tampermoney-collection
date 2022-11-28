@@ -7,7 +7,7 @@ window_ = unsafeWindow;
 
 function inIframe () {
   try {
-    return window.self !== window.top;
+    return window_.self !== window_.top;
   } catch (e) {
     return true;
   }

@@ -37,7 +37,7 @@
         });
 
         return response;
-        
+
 /*
         GM_xmlhttpRequest ({
             method: "POST",
@@ -112,11 +112,11 @@
           baseUrl += `&${key}=${val}`;
         });
         baseUrl += '&p=';
-      
+
         let url = '';
 
         let newCurrentPage = currentPageIndex;
-      
+
         do {
             const pageNum = i;
             if(i < beginIndex || --pagesToLoad < 0 || i > endIndex) {
@@ -166,7 +166,7 @@
               insertPageListHeaderAnchor_top.insertAdjacentElement('afterend', getPageIndexHeader(i));
             }
             Object.assign(torrents, newTorrents);
-            
+
 //          await patchA();
             newCurrentPage = i; // update the newCurrentPage when request done
             isForward ? i++ : i--;
@@ -190,7 +190,7 @@
     const extractParam = (href) => {
       const matchedStr = href.match(/\?.*/)[0];
       const queryArr = matchedStr.substr(1).split('&');
-      
+
       const querys = {};
 
       queryArr.forEach(str => {
@@ -279,7 +279,7 @@
         z-index: 9999;
         width: 90vw;
         height: 90vh;
-        background-color: #547f52;    
+        background-color: #547f52;
         opacity: 0.9;
         margin: 5vh 5vw;
         left: 0px;

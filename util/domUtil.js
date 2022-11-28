@@ -1,11 +1,23 @@
 'use strict';
 
-const htmlStrToDocument = (str) => {
+// this way does NOT support document.execute(), which is the way to run XPath query.
+// refer: https://stackoverflow.com/questions/494143/creating-a-new-dom-element-from-an-html-string-using-built-in-dom-methods-or-pro
+const htmlStrToElements = (str) => {
   const template = document.createElement('template');
   str = str.trim(); // Never return a text node of whitespace as the result
   template.innerHTML = str;
-  const thisDocument = template.content;
-  // thisDocument.querySelectorAll('li');
+  // return = template.content;
+  return template.content.childNodes;
+};
+
+const htmlStrToElement = (str) => {
+  return htmlStrToElements(str)[0];
+};
+
+const domParser = new DOMParser();
+const htmlStrToDocument = (str) => {
+  const doc = domParser.parseFromString(str, 'text/html');
+  const thisDocument = doc;
   return thisDocument;
 };
 
@@ -41,12 +53,42 @@ const stringToMB = (str) => {
   return retVal;
 };
 
-const innerText = (ele) => ele.innerText || ele.textContent;
+const xPathSelector = (ele, queryArg, contextNode = document) => {
+  const xPathResult = ele.evaluate(queryArg, contextNode, null, XPathResult.ANY_TYPE , null);
+  const nodes = [];
+  let node = xPathResult.iterateNext();
+  return node;
+};
+
+const xPathSelectorAll = (ele, queryArg, contextNode = document) => {
+  const xPathResult = ele.evaluate(queryArg, contextNode, null, XPathResult.ANY_TYPE , null);
+  const nodes = [];
+  let node = xPathResult.iterateNext();
+  while (node) {
+      nodes.push(node);
+      node = xPathResult.iterateNext();
+  }
+  return nodes;
+};
+
+window_.xPathSelector = xPathSelector;
+window_.xPathSelectorAll = xPathSelectorAll;
+const innerText = (ele) => {
+  if(!ele) {
+    console.error(`ele is null!!!`);
+    throw new Error(`ele is null!!!`);
+  }
+  return (ele.innerText || ele.textContent).trim();
+};
 
 const extractFileInfo = (liDom) => {
   const fileName = liDom.childNodes[0].textContent.replaceAll('\n', '').trim();
   const matchResult = fileName.match(/\.[^.]+$/);
-  const extension = matchResult ? matchResult[0] : '';
+  let extension = matchResult ? matchResult[0] : '';
+  // incase some file extension is crazy
+  if(extension.length > 31) {
+    extension = extension.substr(4);
+  }
   const fileSize = innerText(liDom.querySelector(':scope > span')).trim();
   const fileSizeInMB = stringToMB(fileSize);
   return {
@@ -63,6 +105,7 @@ const MAGNET_PREFIX = 'magnet:?xt=urn:btih:'; // eslint-disable-line no-unused-v
 const extractTorrentInfo = (ele) => {
   const torrentName = innerText(ele.querySelector('h5:nth-child(1)'));
   const torrentHref = ele.querySelector('h5:nth-child(1) > a').href.match(/(?<=\/magnet\/)[^/]+$/g)[0];
+  const torrentHrefFull = torrentHref;
   const torrentDetailLink = `https://bt4g.org/magnet/${torrentHref}`;
   const torrentType = innerText(ele.querySelector(':scope > span:nth-of-type(1)'));
 
@@ -108,6 +151,7 @@ const extractTorrentInfo = (ele) => {
   return {
     torrentName,
     torrentHref,
+    torrentHrefFull,
     torrentDetailLink,
     torrentType,
     torrentTypeInt,
@@ -117,6 +161,7 @@ const extractTorrentInfo = (ele) => {
     torrentSizeInMB,
     torrentSeeders,
     torrentLeechers,
+    needToFetchFileList,
     filesPartial,
   };
 };

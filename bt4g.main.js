@@ -1,7 +1,4 @@
 
-///@require https://github.com/mitchellmebane/GM_fetch/blob/master/GM_fetch.min.js
-
-// console.info(`=====path: ${JSON.stringify(unsafeWindow.location)}`);
 
 (function() {
     'use strict';
@@ -9,16 +6,8 @@
     const serverHOST = '192.168.10.16';
     const serverPORT = 8180;
     const website = 'bt4g';
-
-    window_ = unsafeWindow;
-
-    function inIframe () {
-      try {
-        return window.self !== window.top;
-      } catch (e) {
-        return true;
-      }
-    }
+    const requestIntervalLow = 1;
+    const requestIntervalHigh = 5;
 
     if(inIframe()) return;
 
@@ -48,7 +37,7 @@
         });
 
         return response;
-        
+
 /*
         GM_xmlhttpRequest ({
             method: "POST",
@@ -86,8 +75,47 @@
         console.info(`=========status: ${postRes.status}, body: ${body}`);
     };
 
+    const getPageIndexHeader = (pageIndex) => {
+      return htmlStrToElement(`<div class="pageListheader">Page ${pageIndex} is shown below:</div>`);
+    };
 
     // testaaa();
+
+    const getItemParent = () => {
+      const targetUl = xPathSelector(document, "//span[contains(concat(' ',normalize-space(@class),' '),' cpill ')]/parent::div/parent::div");
+      return  targetUl;
+    };
+
+    const itemParent = getItemParent();
+
+    // TODO: fix the selector the find the anchor_top
+    const insertPageListHeaderAnchor_top = itemParent.firstElementChild;
+    if(!insertPageListHeaderAnchor_top) { // do nothing when there is no result
+      return;
+    }
+    // TODO: fix the selector the find the anchor_bottom
+    itemParent.insertAdjacentHTML('beforeend', "<div class='pageAnchor'>List End</div>");
+    const insertPageListHeaderAnchor_bottom = itemParent.lastElementChild;
+
+    const getAllIteams = (doc) => {
+      const allItems = xPathSelectorAll(doc, "//span[contains(concat(' ',normalize-space(@class),' '),' cpill ')]/parent::div", doc);
+      return allItems;
+    };
+
+    const getCheckbox = (itemContainer) => {
+      return itemContainer.children[0].children[0];
+    };
+
+    const revertCheckbox = (itemContainer) => {
+      const checkboxEle = getCheckbox(itemContainer);
+      checkboxEle.checked = !checkboxEle.checked;
+    };
+
+    const getMagnet = (itemContainer) => {
+      const href = itemContainer.querySelector('a').href;
+      const magnet = 'magnet:?xt=urn:btih:' + href.match(/(?<=\/magnet\/)[^\/]+$/g)[0];
+      return magnet;
+    };
 
     const loadMore = async(searchTxt, orderBy, isForward, currentPageIndex, jumpSize) => {
         const beginIndex = 0; // skip page one since it's already on first page
@@ -97,9 +125,10 @@
         // '/search/uncen/bysize/1'
 
 
-        const targetUl = document.querySelector("a[href^='/magnet/']").parentElement.parentElement.parentElement;
-        const countBefore = targetUl.childElementCount;
-        console.info(`beofre targetUl.childElementCount: ${countBefore}`);
+        const targetUl = getItemParent();
+
+        const countBefore = getAllIteams(document).length;
+        console.info(`beofre change we have: ${countBefore} items`);
 
         let i = isForward ? (currentPageIndex + 1) : (currentPageIndex - 1);
         let document_ = null;
@@ -117,7 +146,7 @@
                 console.info(`reached the last page: ${pageNum}`);
                 break;
             }
-
+            await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
             url = baseUrl + pageNum;
             const { statusCode, body } = await fetchBT4GRetry(url);
             if(statusCode === 404) { // edge page
@@ -131,28 +160,34 @@
             }
             const currentHTML = body;
             const document_ = htmlStrToDocument(currentHTML);
-            const aItems = Array.from(document_.querySelectorAll("a[href^='/magnet/']"));
+            const listItems = getAllIteams(document_);
             // added into the `page 1`(which is the first page) page.
             // targetUl.appendChild(...LIs);
             if(isForward) {
-                aItems.forEach(item => {
-                    const itemContainer = item.parentElement.parentElement;
-                    targetUl.appendChild(itemContainer);
-                });
+              insertPageListHeaderAnchor_bottom.insertAdjacentElement('beforebegin', getPageIndexHeader(i));
+              listItems.forEach(item => {
+                // targetUl.appendChild(item);
+                insertPageListHeaderAnchor_bottom.insertAdjacentElement('beforebegin', item);
+              });
             } else {
-                const anchorEle = document.querySelector("a[href^='/magnet/']").parentElement.parentElement
-                aItems.forEach(item => {
-                    const itemContainer = item.parentElement.parentElement;
-                    anchorEle.insertAdjacentElement('beforebegin', itemContainer);
-                });
+              // const anchorEle = targetUl.querySelector(":scope > div:nth-child(0)");
+//            listItems.forEach(item => {
+//              anchorEle.insertAdjacentElement('beforebegin', item);
+//            });
+              // backward
+              listItems.reverse();
+              listItems.forEach(item => {
+                insertPageListHeaderAnchor_top.insertAdjacentElement('afterend', item);
+              });
+              insertPageListHeaderAnchor_top.insertAdjacentElement('afterend', getPageIndexHeader(i));
             }
             newCurrentPage = i; // update the newCurrentPage when request done
             isForward ? i++ : i--;
         } while(true);
 
-        const countAfter = targetUl.childElementCount;
+        const countAfter = getAllIteams(document).length;
         const msg = `Loaded another ${countAfter - countBefore} items from page ${currentPageIndex} to ${newCurrentPage}`;
-        console.info(`after targetUl.childElementCount: ${targetUl.childElementCount}`);
+        console.info(`after change we have: ${countAfter} items`);
         showMsg(msg);
         return newCurrentPage;
     };
@@ -202,6 +237,9 @@
         style.type='text/css';
 
         const customCSS = `
+          .hiddenEle {
+            display: none !important;
+          }
 	  .itemCheck {
 			  width: 30px;
 		height: 30px;
@@ -244,17 +282,36 @@
         left: 0px;
         top: 10px;
       }
-      .refreshDiv  iframe {
+      .refreshDiv  .refreshIframe {
         width: 90vw;
         height: calc(90vw - 100px);
       }
-      .refreshDiv .refreshMsg {
+      .refreshDiv .refreshHeader {
         width: 100%;
         height: 100px;
         line-height: 100px;
         font-size: 85px;
         text-align: center;
         color: coral;
+        position: relative;
+      }
+      .refreshDiv .refreshHeader .refreshMsg{
+        color: red;
+      }
+      .IFixedIt {
+        height: 100%;
+        font-size: 30px;
+        display: flex;
+        position: absolute;
+        right: 0;
+        top: 0;
+      }
+      .pageListheader {
+        width: calc(100vw - 150px);
+        border-top-style: ridge;
+      }
+      .pageAnchor {
+        width: 80vw;
       }
   `;
 
@@ -267,21 +324,19 @@
     };
     loadCustomStyle();
 
-    const getAllAIteams = () => {
-        return Array.from(document.querySelectorAll("a[href^='/magnet/']"));
-    };
 
     window_.allCheck = () => {
         console.info(`in allCheck`);
-        getAllAIteams().forEach(ele => {
-            ele.previousElementSibling.checked = true;
+        getAllIteams(document).forEach(ele => {
+            getCheckbox(ele).checked = true;
         });
     };
 
     window_.invertCheck = () => {
         console.info(`in invertCheck`);
-        getAllAIteams().forEach(ele => {
-            ele.previousElementSibling.checked = !ele.previousElementSibling.checked;
+        getAllIteams(document).forEach(ele => {
+            const checkboxEle = getCheckbox(ele);
+            checkboxEle.checked = !checkboxEle.checked;
         });
     };
 
@@ -297,10 +352,11 @@
     window_.CopyCheckedLink = function() {
         console.info(`in CopyCheckedLink`);
         const resultTorrent = [];
-        const allA = getAllAIteams();
-        allA.forEach(ele => {
-            if(ele.previousElementSibling.checked) {
-                const newUrl = 'magnet:?xt=urn:btih:' + ele.href.match(/(?<=\/magnet\/)[^\/]+$/g)[0];
+        const allItems = getAllIteams(document);
+        allItems.forEach(ele => {
+            const checkboxEle = getCheckbox(ele);
+            if(checkboxEle.checked) {
+                const newUrl = getMagnet(ele);
                 resultTorrent.push(newUrl);
                 //            ele.href = newUrl;
             }
@@ -313,50 +369,94 @@
         showMsg(`Copied ${resultTorrent.length} items to Clipboard! ^_^`);
     };
 
+    const getElementIndexAmondSiblings = (ele) => {
+      var parent = ele.parentNode;
+      const retVal = Array.prototype.indexOf.call(parent.children, ele);
+      return retVal;
+    }
+
+    const itemOnclickHandler = (event, ele) => {
+      const lastClickedItems = Array.from(document.querySelectorAll(".itemBody[isLastClickedItem='true']"));
+      // console.info(event.shiftKey);
+      // debugger;
+      if(event.shiftKey && lastClickedItems.length > 0) { // shift mode for multi-selection
+        const lastClickedItem = lastClickedItems[0];
+        // find the items between lastClickedItem and current element
+        // we add 1 since the index of :nth-child() selector in css seletor starts from 1, instead of 0
+        const lastClickedItemIndex = getElementIndexAmondSiblings(lastClickedItem) + 1;
+        const currentClickedItemIndex = getElementIndexAmondSiblings(ele) + 1;
+        // const siblings = Array.from(ele.parentNode.children);
+        let cssSelector = '';
+        if(lastClickedItemIndex < currentClickedItemIndex) {
+          cssSelector = `:scope > .itemBody:nth-child(n+${lastClickedItemIndex + 1}):nth-child(-n+${currentClickedItemIndex})`;
+        } else {
+          cssSelector = `:scope > .itemBody:nth-child(n+${currentClickedItemIndex}):nth-child(-n+${lastClickedItemIndex - 1})`;
+        }
+        const itemsToHandle = Array.from(ele.parentElement.querySelectorAll(cssSelector));
+        itemsToHandle.forEach(item => {
+          revertCheckbox(item);
+        });
+      } else { // single click mode
+
+        // clear the last clicked item mark
+        lastClickedItems.forEach(item => {
+          item.setAttribute('isLastClickedItem', 'false');
+        });
+        revertCheckbox(ele);
+        // event.preventDefault();
+        // console.info(`ischecked? : ${checkboxEle.checked}`);
+        // set the last clicked item mark
+        ele.setAttribute('isLastClickedItem', 'true');
+      }
+      event.preventDefault();
+
+
+    };
 
     const patchA = () => {
       // find all a
-      const allA = Array.from(document.querySelectorAll("a[href^='/magnet/']:not([isPatched='true'])"));
-      allA.forEach(ele => {
-          // add a checkbox for each a
-          ele.insertAdjacentHTML('beforebegin', '<input type="checkbox" name="itemCheck" value="yes" class="itemCheck" onclick="onItemClick(event); return true;" />');
-          // add class for the checkbox to apply css
-          ele.parentElement.parentElement.classList.add("itemBody");
-          /* */
-          // add click on div to check/uncheck
-          ele.parentElement.parentElement.addEventListener('click', function(event) {
-              // event.preventDefault();
-              // ele.previousElementSibling.click();
-              if(event.target.name !== 'itemCheck') {
-                  ele.previousElementSibling.checked = !ele.previousElementSibling.checked;
-                  event.preventDefault();
-                  console.info(`ischecked? : ${ele.previousElementSibling.checked}`);
-              }
-          }, false);
-          // add mark to tell this a has been patched
-          ele.setAttribute('isPatched', 'true');
+      // const allItems = Array.from(document.querySelectorAll("a[href^='/magnet/']:not([isPatched='true'])"));
+      const allItems = xPathSelectorAll(document, "//span[contains(concat(' ',normalize-space(@class),' '),' cpill ')]/parent::div[not([@isPatched='true'])]");
+      allItems.forEach(ele => {
+        const aItem = ele.querySelector('a');
+        // add a checkbox for each a
+        aItem.insertAdjacentHTML('beforebegin', '<input type="checkbox" name="itemCheck" value="yes" class="itemCheck" onclick="onItemClick(event); return true;" />');
+        // add class for the checkbox to apply css
+        ele.classList.add("itemBody");
+        /* */
+        // add click on div to check/uncheck
+        ele.addEventListener('click', function(event) {
+          // event.preventDefault();
+          // ele.previousElementSibling.click();
+          if(event.target.name !== 'itemCheck') {
+            itemOnclickHandler(event, ele);
+          }
+        }, false);
+        // add mark to tell this a has been patched
+        ele.setAttribute('isPatched', 'true');
       });
     };
 
     const fetchSelectFileList = async() => {
 
-      const allA = Array.from(document.querySelectorAll("a[href^='/magnet/']:not([isFetched='true'])"));
-      const selectedA = allA.filter(ele => {
-        if(ele.previousElementSibling.checked) {
+      const allItems = Array.from(document.querySelectorAll(".itemBody:not([isFetched='true'])"));
+      const selectedItem = allItems.filter(ele => {
+        if(getCheckbox(ele).checked) {
            return true;
         }
         return false;
       });
-      const length = selectedA.length;
+      const length = selectedItem.length;
       for(let i = 0; i < length; i++) {
         if(i % 10 === 0) {
-          const progress = (i / length).toFixed(2);
+          const progress = ((i / length) * 100).toFixed(2);
           showMsg(`fetch filelist inprogress... ${progress}%`);
         }
-        const ele = selectedA[i];
-        const torrentInfo = extractTorrentInfo(ele.parentElement.parentElement);
+        const ele = selectedItem[i];
+        const torrentInfo = extractTorrentInfo(ele);
         await fetchTorrentDetails(torrentInfo);
         torrents[torrentInfo.torrentHref] = torrentInfo;
+        await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
         ele.setAttribute('isFetched', 'true');
       }
       return length;
@@ -388,6 +488,7 @@
     window_.loadNextPages = async function(_this) {
         console.info(`in loadNextPages();`);
         const isForward = true;
+        // read the CountToLoad from the previous input
         const count = _this.previousElementSibling.value;
         const jumpSize = Number.parseInt(count, 10);
         const newIndex = await loadMore(searchTxt, orderBy, isForward, currentPageIndexRight, jumpSize);
@@ -451,6 +552,8 @@
 <input type="button" name="loadNextPages" value="loadNextPages" class="loadPages" onClick="loadNextPages(this)" />
 <input type="button" name="loadToLastPage" value="loadToLastPage" class="loadPages" onClick="loadToLastPage()" />
     `;
+
+    insertPageListHeaderAnchor_top.insertAdjacentElement('afterend', getPageIndexHeader(currentPageIndex));
 
     document.querySelector("main > .container div:nth-child(4) > div > div > span").insertAdjacentHTML('beforebegin', checkActionBtns);
 

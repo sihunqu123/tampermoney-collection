@@ -37,7 +37,7 @@
         });
 
         return response;
-        
+
 /*
         GM_xmlhttpRequest ({
             method: "POST",
@@ -75,8 +75,46 @@
         console.info(`=========status: ${postRes.status}, body: ${body}`);
     };
 
+    const getPageIndexHeader = (pageIndex) => {
+      return htmlStrToElement(`<div class="pageListheader listItem-common"><div class="headerTxt">Page ${pageIndex} is shown below:</div></div>`);
+    };
 
     // testaaa();
+
+    const getItemParent = () => {
+      const targetUl = document.querySelector("form[action='/search'] + div > div:nth-child(4)");
+      return  targetUl;
+    };
+
+    const itemParent = getItemParent();
+
+    // TODO: fix the selector the find the anchor_top
+    itemParent.insertAdjacentHTML('afterbegin', "<div class='pageAnchor listItem-common'></div>");
+    const insertPageListHeaderAnchor_top = itemParent.firstElementChild;
+    if(!insertPageListHeaderAnchor_top) { // do nothing when there is no result
+      return;
+    }
+    // TODO: fix the selector the find the anchor_bottom
+    itemParent.insertAdjacentHTML('beforeend', "<div class='pageAnchor listItem-common'></div>");
+    const insertPageListHeaderAnchor_bottom = itemParent.lastElementChild;
+
+    const getAllIteams = (doc) => {
+      const allItems = Array.from(doc.querySelectorAll("form[action='/search'] + div > div:nth-child(4) > .one_result"));
+      return allItems;
+    };
+
+    const getCheckbox = (itemContainer) => {
+      return itemContainer.children[0].children[0];
+    };
+
+    const revertCheckbox = (itemContainer) => {
+      const checkboxEle = getCheckbox(itemContainer);
+      checkboxEle.checked = !checkboxEle.checked;
+    };
+
+    const getMagnet = (itemContainer) => {
+      return itemContainer.querySelector('.torrent_magnet a').href;
+    };
 
     const loadMore = async(searchTxt, orderBy, isForward, currentPageIndex, jumpSize) => {
         const beginIndex = 0; // skip page one since it's already on first page
@@ -86,19 +124,20 @@
         // '/search/uncen/bysize/1'
 
 
-        const targetUl = document.querySelector("form[action='/search'] + div > div:nth-child(4)");
+        const targetUl = getItemParent();
 
-        const countBefore = targetUl.querySelectorAll(".itemBody").length;
+        const countBefore = getAllIteams(document).length;
         console.info(`beofre change we have: ${countBefore} items`);
 
         let i = isForward ? (currentPageIndex + 1) : (currentPageIndex - 1);
         let document_ = null;
         let pagesToLoad = jumpSize;
         let baseUrl = `https://www.btdig.com/search?q=${searchTxt}&order=${orderBy}&p=`;
-      
+
         let url = '';
 
         let newCurrentPage = currentPageIndex;
+
         do {
             const pageNum = i;
             if(i < beginIndex || --pagesToLoad < 0 || i > endIndex) {
@@ -119,25 +158,32 @@
             }
             const currentHTML = body;
             const document_ = htmlStrToDocument(currentHTML);
-            const listItems = Array.from(document_.querySelectorAll("form[action='/search'] + div > div:nth-child(4) > *"));
+            const listItems = getAllIteams(document_);
             // added into the `page 1`(which is the first page) page.
             // targetUl.appendChild(...LIs);
             if(isForward) {
+              insertPageListHeaderAnchor_bottom.insertAdjacentElement('beforebegin', getPageIndexHeader(i));
               listItems.forEach(item => {
-                  targetUl.appendChild(item);
+                // targetUl.appendChild(item);
+                insertPageListHeaderAnchor_bottom.insertAdjacentElement('beforebegin', item);
               });
             } else {
-              // const anchorEle = document.querySelector("form[action='/search'] + div > div:nth-child(4) > div:first-child");
-              const anchorEle = targetUl.querySelector(":scope > div:first-child");
+              // const anchorEle = targetUl.querySelector(":scope > div:nth-child(1)");
+//            listItems.forEach(item => {
+//              anchorEle.insertAdjacentElement('beforebegin', item);
+//            });
+              // backward
+              listItems.reverse();
               listItems.forEach(item => {
-                  anchorEle.insertAdjacentElement('beforebegin', item);
+                insertPageListHeaderAnchor_top.insertAdjacentElement('afterend', item);
               });
+              insertPageListHeaderAnchor_top.insertAdjacentElement('afterend', getPageIndexHeader(i));
             }
             newCurrentPage = i; // update the newCurrentPage when request done
             isForward ? i++ : i--;
         } while(true);
 
-        const countAfter = targetUl.querySelectorAll(".itemBody").length;
+        const countAfter = getAllIteams(document).length;
         const msg = `Loaded another ${countAfter - countBefore} items from page ${currentPageIndex} to ${newCurrentPage}`;
         console.info(`after change we have: ${countAfter} items`);
         showMsg(msg);
@@ -230,7 +276,7 @@
         z-index: 9999;
         width: 90vw;
         height: 90vh;
-        background-color: #547f52;    
+        background-color: #547f52;
         opacity: 0.9;
         margin: 5vh 5vw;
         left: 0px;
@@ -260,6 +306,23 @@
         right: 0;
         top: 0;
       }
+      .pageListheader {
+      }
+      .pageListheader .headerTxt {
+
+        display: flex;
+        position: absolute;
+        border-top-style: ridge;
+        width: 80vw;
+
+      }
+      .pageAnchor {
+        display: table-row;
+      }
+      .listItem-common {
+        height: 20px;
+
+      }
   `;
 
         if(style.styleSheet){
@@ -271,34 +334,17 @@
     };
     loadCustomStyle();
 
-    const getAllIteams = () => {
-        return Array.from(document.querySelectorAll(".itemBody"));
-    };
-
-    const getCheckbox = (itemContainer) => {
-      return itemContainer.children[0].children[0];
-    };
-
-    const revertCheckbox = (itemContainer) => {
-      const checkboxEle = getCheckbox(itemContainer);
-      checkboxEle.checked = !checkboxEle.checked;
-    };
-
-    const getMagnet = (itemContainer) => {
-      return itemContainer.querySelector('.torrent_magnet a').href;
-    };
-    
 
     window_.allCheck = () => {
         console.info(`in allCheck`);
-        getAllIteams().forEach(ele => {
+        getAllIteams(document).forEach(ele => {
             getCheckbox(ele).checked = true;
         });
     };
 
     window_.invertCheck = () => {
         console.info(`in invertCheck`);
-        getAllIteams().forEach(ele => {
+        getAllIteams(document).forEach(ele => {
             const checkboxEle = getCheckbox(ele);
             checkboxEle.checked = !checkboxEle.checked;
         });
@@ -316,7 +362,7 @@
     window_.CopyCheckedLink = function() {
         console.info(`in CopyCheckedLink`);
         const resultTorrent = [];
-        const allItems = getAllIteams();
+        const allItems = getAllIteams(document);
         allItems.forEach(ele => {
             const checkboxEle = getCheckbox(ele);
             if(checkboxEle.checked) {
@@ -341,7 +387,7 @@
 
     const itemOnclickHandler = (event, ele) => {
       const lastClickedItems = Array.from(document.querySelectorAll(".itemBody[isLastClickedItem='true']"));
-      console.info(event.shiftKey);
+      // console.info(event.shiftKey);
       // debugger;
       if(event.shiftKey && lastClickedItems.length > 0) { // shift mode for multi-selection
         const lastClickedItem = lastClickedItems[0];
@@ -378,7 +424,7 @@
     };
 
 
-    const patchA = () => {
+    const patchA = async () => {
       // find all a
       const allItems = Array.from(document.querySelectorAll(".one_result:not([isPatched='true'])"));
       allItems.forEach(ele => {
@@ -418,8 +464,8 @@
         const ele = selectedItem[i];
         const torrentInfo = extractTorrentInfo(ele);
         await fetchTorrentDetails(torrentInfo);
-        await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
         torrents[torrentInfo.torrentHref] = torrentInfo;
+        await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
         ele.setAttribute('isFetched', 'true');
       }
       return length;
@@ -517,14 +563,10 @@
 <input type="button" name="loadToLastPage" value="loadToLastPage" class="loadPages" onClick="loadToLastPage()" />
     `;
 
-//  const getAnchorElement = () => {
-//    const checkActionBtnPostion_top = document.querySelector("form[action='/search'] + div > div:nth-child(1)");
-//    const loadBtnPostion_top = document.querySelector("form[action='/search'] + div > div:nth-child(3)");
-//    document.querySelectorAll("form[action='/search'] + div > div:last-child");
-//
-//  };
 
   // TODO
+    insertPageListHeaderAnchor_top.insertAdjacentElement('afterend', getPageIndexHeader(currentPageIndex));
+
     document.querySelector("form[action='/search'] + div > div:nth-child(1)").insertAdjacentHTML('afterbegin', checkActionBtns);
     document.querySelector("form[action='/search'] + div > div:nth-child(3)").insertAdjacentHTML('afterbegin', loadBtns);
 

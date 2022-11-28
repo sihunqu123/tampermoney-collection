@@ -74,10 +74,6 @@ const xPathSelectorAll = (ele, queryArg, contextNode = document) => {
 
 window_.xPathSelector = xPathSelector;
 window_.xPathSelectorAll = xPathSelectorAll;
-
-xPathSelectorAll(document, "//div[./*[@aria-label='Page navigation']]");
-
-
 const innerText = (ele) => {
   if(!ele) {
     console.error(`ele is null!!!`);
@@ -89,7 +85,11 @@ const innerText = (ele) => {
 const extractFileInfo = (liDom) => {
   const fileName = innerText(liDom.firstElementChild).replaceAll('\n', '').trim();
   const matchResult = fileName.match(/\.[^.]+$/);
-  const extension = matchResult ? matchResult[0] : '';
+  let extension = matchResult ? matchResult[0] : '';
+  // incase some file extension is crazy
+  if(extension.length > 31) {
+    extension = extension.substr(4);
+  }
   const fileSize = innerText(liDom.lastElementChild);
   const fileSizeInMB = stringToMB(fileSize);
   return {
@@ -231,7 +231,6 @@ const extractTorrentList = (htmlStr) => {
 const extractExtraTorrentInfo = (htmlStr) => {
   const document_ = htmlStrToDocument(htmlStr);
 
-  // JSDom does not support evaluate method which execute the XPath query
   // const fileLIs = xPathSelectorAll_Doc(document_, document_, "div[@class='panel-heading'][contains(., '文件列表')]/following-sibling::div/ul/li");
   const fileLIs = Array.from(document_.querySelectorAll(".col-md-6 > div:nth-of-type(5) ul.list-unstyled > li"));
   const files = fileLIs.map((fileItem) => extractFileInfo(fileItem));
