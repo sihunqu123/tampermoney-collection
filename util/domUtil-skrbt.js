@@ -1,11 +1,23 @@
 'use strict';
 
-const htmlStrToDocument = (str) => {
+// this way does NOT support document.execute(), which is the way to run XPath query.
+// refer: https://stackoverflow.com/questions/494143/creating-a-new-dom-element-from-an-html-string-using-built-in-dom-methods-or-pro
+const htmlStrToElements = (str) => {
   const template = document.createElement('template');
   str = str.trim(); // Never return a text node of whitespace as the result
   template.innerHTML = str;
-  const thisDocument = template.content;
-  // thisDocument.querySelectorAll('li');
+  // return = template.content;
+  return template.content.childNodes;
+};
+
+const htmlStrToElement = (str) => {
+  return htmlStrToElements(str)[0];
+};
+
+const domParser = new DOMParser();
+const htmlStrToDocument = (str) => {
+  const doc = domParser.parseFromString(str, 'text/html');
+  const thisDocument = doc;
   return thisDocument;
 };
 
@@ -32,6 +44,7 @@ const stringToMB = (str) => {
       break;
     case 'NULL': // unit is omitted when it's byte
     case 'B':
+    case 'BYTE':
       retVal = num / (1024 * 1024);
       break;
     default:
@@ -40,6 +53,30 @@ const stringToMB = (str) => {
   }
   return retVal;
 };
+
+const xPathSelector = (ele, queryArg, contextNode = document) => {
+  const xPathResult = ele.evaluate(queryArg, contextNode, null, XPathResult.ANY_TYPE , null);
+  const nodes = [];
+  let node = xPathResult.iterateNext();
+  return node;
+};
+
+const xPathSelectorAll = (ele, queryArg, contextNode = document) => {
+  const xPathResult = ele.evaluate(queryArg, contextNode, null, XPathResult.ANY_TYPE , null);
+  const nodes = [];
+  let node = xPathResult.iterateNext();
+  while (node) {
+      nodes.push(node);
+      node = xPathResult.iterateNext();
+  }
+  return nodes;
+};
+
+window_.xPathSelector = xPathSelector;
+window_.xPathSelectorAll = xPathSelectorAll;
+
+xPathSelectorAll(document, "//div[./*[@aria-label='Page navigation']]");
+
 
 const innerText = (ele) => {
   if(!ele) {
@@ -50,10 +87,10 @@ const innerText = (ele) => {
 };
 
 const extractFileInfo = (liDom) => {
-  const fileName = liDom.textContent.replaceAll('\n', '').trim();
+  const fileName = innerText(liDom.firstElementChild).replaceAll('\n', '').trim();
   const matchResult = fileName.match(/\.[^.]+$/);
   const extension = matchResult ? matchResult[0] : '';
-  const fileSize = innerText(liDom.nextElementSibling).trim();
+  const fileSize = innerText(liDom.lastElementChild);
   const fileSizeInMB = stringToMB(fileSize);
   return {
     fileName,
@@ -107,35 +144,32 @@ const extractCreateTime = (str) => {
 };
 
 const extractTorrentInfo = (ele) => {
-  const torrentName = innerText(ele.querySelector('.torrent_name'));
-  const torrentHrefFull = ele.querySelector('.torrent_magnet a').href.trim().substr(MAGNET_PREFIX.length);
-  const torrentHref = torrentHrefFull.match('^[^&]+')[0];
-  const torrentDetailLink = ele.querySelector('.torrent_name > a').href;
+  const torrentName = innerText(ele.querySelector('.result-resource-title'));
+//const torrentHrefFull = ele.querySelector('.torrent_magnet a').href.trim().substr(MAGNET_PREFIX.length);
+//const torrentHref = torrentHrefFull.match('^[^&]+')[0];
+  const torrentHrefFull = ''; // not exist on current dom, need to fetch from torrentDetailLink 
+  const torrentHref = ''; // not exist on current dom, need to fetch from torrentDetailLink
+
+  const torrentDetailLink = ele.querySelector('.result-resource-title').href;
   // hardcoding since there is no such info for this site
   const torrentType = 'VIDEO';
 
-  const torrentCreateTime_txt = innerText(ele.querySelector('span.torrent_age'));
-  const torrentCreateTime = extractCreateTime(torrentCreateTime_txt);
+  const torrentCreateTime = innerText(ele.querySelector('.result-resource-meta-info > span:nth-of-type(3)'));
+
+  const torrentFileCnt = innerText(ele.querySelector('.result-resource-meta-info > span:nth-of-type(2)'));
   
-  const torrentSize = innerText(ele.querySelector('.torrent_size'));
+  const torrentSize = innerText(ele.querySelector('.result-resource-meta-info > span:nth-of-type(1)'));
   // hardcoding since there is no such info for this site
   const torrentSeeders = 0;
   const torrentLeechers = 0;
 
-  const hasHiddenFile = !!ele.querySelector('.torrent_excerpt a');
-  const needToFetchFileList = hasHiddenFile;
+  const needToFetchFileList = true; // always, since we need to fetch the torrentHref
 
-  const fileLIs = Array.from(ele.querySelectorAll('.torrent_excerpt > div:not(.fa-folder-open):not(.fa-plus-circle)'));
+  const fileLIs = Array.from(ele.querySelectorAll('.result-resource-file'));
 
   const filesPartial = fileLIs.map((fileItem) => extractFileInfo(fileItem));
 
   const fileCountEle = ele.querySelector('.torrent_files');
-  let torrentFileCnt = 0;
-  if(fileCountEle ) {
-    torrentFileCnt = innerText(fileCountEle);
-  } else {
-    torrentFileCnt = filesPartial.length;
-  }
 
   let torrentTypeInt = 0;
 
@@ -197,10 +231,23 @@ const extractTorrentList = (htmlStr) => {
 const extractExtraTorrentInfo = (htmlStr) => {
   const document_ = htmlStrToDocument(htmlStr);
 
-  const fileLIs = Array.from(document_.querySelectorAll('form + div tbody > tr:last-child > td > div:not(.fa-folder-open):not(.fa-plus-circle)'));
+  // JSDom does not support evaluate method which execute the XPath query
+  // const fileLIs = xPathSelectorAll_Doc(document_, document_, "div[@class='panel-heading'][contains(., '文件列表')]/following-sibling::div/ul/li");
+  const fileLIs = Array.from(document_.querySelectorAll(".col-md-6 > div:nth-of-type(5) ul.list-unstyled > li"));
   const files = fileLIs.map((fileItem) => extractFileInfo(fileItem));
   // console.info(JSON.stringify(files, null, 2));
+
+  const hrefA = document_.querySelector("#detail-magnet-panel > a");
+  if(!hrefA) {
+    console.error('No hrefA found! htmlStr is below:');
+    console.error(htmlStr);
+    throw new Error('No hrefA found! htmlStr is below:');
+  }
+  const torrentHref = hrefA.href;
+  const torrentHrefFull = torrentHref;
   return {
     files,
+    torrentHref,
+    torrentHrefFull,
   };
 };

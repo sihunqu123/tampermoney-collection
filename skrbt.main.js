@@ -2,14 +2,14 @@
 
 (function() {
     'use strict';
-    console.info(`=================btdig hacked`);
+    console.info(`=================skrbt hacked`);
     const serverHOST = '192.168.10.16';
     const serverPORT = 8180;
-    const website = 'btdig';
-    const requestIntervalLow = 1;
-    const requestIntervalHigh = 5;
+    const website = 'skrbt';
+    const requestIntervalLow = 5000;
+    const requestIntervalHigh = 15000;
 
-    if(inIframe()) return;
+    // if(inIframe()) return;
 
     const torrents = {
 
@@ -75,18 +75,30 @@
         console.info(`=========status: ${postRes.status}, body: ${body}`);
     };
 
+    const getPageIndexHeader = (pageIndex) => {
+      return htmlStrToElement(`<div class="pageListheader">Page ${pageIndex} is shown below:</div>`);
+    };
 
     // testaaa();
 
-    const loadMore = async(searchTxt, orderBy, isForward, currentPageIndex, jumpSize) => {
-        const beginIndex = 0; // skip page one since it's already on first page
+    const insertPageListHeaderAnchor_top = xPathSelector(document, "//p/*[@class='result-stats']/..");
+    if(!insertPageListHeaderAnchor_top) { // do nothing when there is no result
+      return;
+    }
+    const insertPageListHeaderAnchor_bottom = xPathSelector(document, "//div/nav[@aria-label='Page navigation']");
+
+    const loadMore = async(searchTxt, orderBy, isForward, currentPageIndex, jumpSize, otherArgs) => {
+        const beginIndex = 1; // skip page one since it's already on first page
         const endIndex = 100; // this site won't load page after this number
         // const orgName = 'phoenix-core';
 
         // '/search/uncen/bysize/1'
 
 
-        const targetUl = document.querySelector("form[action='/search'] + div > div:nth-child(4)");
+        // https://skrbtdi.top/search?keyword=Uncensored-Leaked&sos=relevance&sofs=all&sot=all&soft=all&som=exact&p=10
+        // TODO: get the list item parent
+        const targetUl = xPathSelector(document, "//div[./*[@aria-label='Page navigation']]");
+        // const targetUl = document.querySelector("form[action='/search'] + div > div:nth-child(4)");
 
         const countBefore = targetUl.querySelectorAll(".itemBody").length;
         console.info(`beofre change we have: ${countBefore} items`);
@@ -94,11 +106,17 @@
         let i = isForward ? (currentPageIndex + 1) : (currentPageIndex - 1);
         let document_ = null;
         let pagesToLoad = jumpSize;
-        let baseUrl = `https://www.btdig.com/search?q=${searchTxt}&order=${orderBy}&p=`;
+        let baseUrl = `https://skrbtdi.top/search?keyword=${searchTxt}&sos=${orderBy}`;
+        Object.keys(otherArgs).forEach(key => {
+          const val = otherArgs[key];
+          baseUrl += `&${key}=${val}`;
+        });
+        baseUrl += '&p=';
       
         let url = '';
 
         let newCurrentPage = currentPageIndex;
+      
         do {
             const pageNum = i;
             if(i < beginIndex || --pagesToLoad < 0 || i > endIndex) {
@@ -107,32 +125,49 @@
             }
             await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
             url = baseUrl + pageNum;
-            const { statusCode, body } = await fetchBT4GRetry(url);
-            if(statusCode === 404 || statusCode === 302) { // edge page
-              break;
-            }
-            if(statusCode != 200) {
-              console.error(`non-200/404 result: ${body}`);
-              showMsg(`run into error. Please check the console for details!`);
-              await sleepMS(4000);
-              break;
-            }
-            const currentHTML = body;
-            const document_ = htmlStrToDocument(currentHTML);
-            const listItems = Array.from(document_.querySelectorAll("form[action='/search'] + div > div:nth-child(4) > *"));
+            const {
+              listItems,
+              torrents: newTorrents,
+            } = await fetchIframeRetry({
+              url,
+              searchTxt,
+              pageIndex: pageNum,
+            });
+//          if(statusCode === 404 || statusCode === 302) { // edge page
+//            break;
+//          }
+//          if(statusCode != 200) {
+//            console.error(`non-200/404 result: ${body}`);
+//            showMsg(`run into error. Please check the console for details!`);
+//            await sleepMS(4000);
+//            break;
+//          }
+//          const currentHTML = body;
+//          const document_ = htmlStrToDocument(currentHTML);
+//          const listItems = xPathSelectorAll(document_, "//div[./*[@aria-label='Page navigation']]/ul", document_);
+            // const listItems = Array.from(document_.querySelectorAll("form[action='/search'] + div > div:nth-child(4) > *"));
             // added into the `page 1`(which is the first page) page.
             // targetUl.appendChild(...LIs);
             if(isForward) {
+              insertPageListHeaderAnchor_bottom.insertAdjacentElement('beforebegin', getPageIndexHeader(i));
               listItems.forEach(item => {
-                  targetUl.appendChild(item);
+                insertPageListHeaderAnchor_bottom.insertAdjacentElement('beforebegin', item);
               });
             } else {
-              // const anchorEle = document.querySelector("form[action='/search'] + div > div:nth-child(4) > div:first-child");
-              const anchorEle = targetUl.querySelector(":scope > div:first-child");
+//            const anchorEle = targetUl.querySelector(":scope > ul:nth-of-type(1)");
+//            listItems.forEach(item => {
+//                anchorEle.insertAdjacentElement('beforebegin', item);
+//            });
+              // backward
+              listItems.reverse();
               listItems.forEach(item => {
-                  anchorEle.insertAdjacentElement('beforebegin', item);
+                insertPageListHeaderAnchor_top.insertAdjacentElement('afterend', item);
               });
+              insertPageListHeaderAnchor_top.insertAdjacentElement('afterend', getPageIndexHeader(i));
             }
+            Object.assign(torrents, newTorrents);
+            
+//          await patchA();
             newCurrentPage = i; // update the newCurrentPage when request done
             isForward ? i++ : i--;
         } while(true);
@@ -149,6 +184,7 @@
      * Age: 2
      * Size: 3
      * Files: 4
+     * https://skrbtdi.top/search?keyword=Uncensored-Leaked&sos=relevance&sofs=all&sot=all&soft=all&som=exact&p=10
      *
      */
     const extractParam = (href) => {
@@ -163,23 +199,35 @@
         const value = arr[1];
         querys[key] = value;
       });
-      const { q, p, order} = querys;
-      const searchTxt = q;
-      const orderBy = order;
-      const pageIndex = p ? parseInt(p) : 0; // start with 0
+      const { keyword, sos, sofs, sot, soft, som, p } = querys;
+      const searchTxt = keyword;
+      const orderBy = sos || 'relevance';
+      const pageIndex = p ? parseInt(p) : 1; // start with 1
+
+      const otherArgs = {
+        sofs: sofs || 'all',
+        sot: sot || 'all',
+        soft: soft || 'all',
+        som: som || 'exact',
+      };
 
       return {
         searchTxt,
         orderBy,
         pageIndex,
+        otherArgs,
       };
     };
 
-    const { searchTxt, orderBy, pageIndex } = extractParam(window_.location.href + '');
+    let searchTxt = '';
+    let orderBy = '';
+    let pageIndex = 1;
+    let otherArgs = {};
+    if(!inIframe()) ({ searchTxt, orderBy, pageIndex, otherArgs } = extractParam(window_.location.href + ''));
+
     let currentPageIndex = pageIndex;
     let currentPageIndexLeft = currentPageIndex;
     let currentPageIndexRight = currentPageIndex;
-
 
 
     const loadCustomStyle = () => {
@@ -195,10 +243,10 @@
 		height: 30px;
 		color: red;
 		left: 30px;
-		margin-top: 3px;
 		border-color: green;
         opacity: 1 !important;
         pointer-events: unset !important;
+      margin-top: 30px !important;
 		/* border-width: 10px; */
 		/* border-style: solid; */
 		/* line-height: 20; */
@@ -220,8 +268,9 @@
         width: 50px !important;
       }
       .itemCheckDiv {
-        display: table-cell;
-        vertical-align: middle !important;
+        display: flex;
+        position: absolute;
+        left: -30px;
       }
       .refreshDiv {
         display: flex;
@@ -260,6 +309,16 @@
         right: 0;
         top: 0;
       }
+      .col-md-6 > p {
+        min-width: 600px;
+      }
+      .col-md-6 > nav {
+        min-width: 600px;
+      }
+      .pageListheader {
+        width: calc(100vw - 150px);
+        border-top-style: ridge;
+      }
   `;
 
         if(style.styleSheet){
@@ -285,9 +344,8 @@
     };
 
     const getMagnet = (itemContainer) => {
-      return itemContainer.querySelector('.torrent_magnet a').href;
+      return itemContainer.getAttribute('torrentHref');
     };
-    
 
     window_.allCheck = () => {
         console.info(`in allCheck`);
@@ -341,7 +399,7 @@
 
     const itemOnclickHandler = (event, ele) => {
       const lastClickedItems = Array.from(document.querySelectorAll(".itemBody[isLastClickedItem='true']"));
-      console.info(event.shiftKey);
+      // console.info(event.shiftKey);
       // debugger;
       if(event.shiftKey && lastClickedItems.length > 0) { // shift mode for multi-selection
         const lastClickedItem = lastClickedItems[0];
@@ -378,10 +436,16 @@
     };
 
 
-    const patchA = () => {
+    const patchA = async () => {
+      // item container
+      // xPathSelector(document, "//div[./*[@aria-label='Page navigation']]")
+      //
       // find all a
-      const allItems = Array.from(document.querySelectorAll(".one_result:not([isPatched='true'])"));
-      allItems.forEach(ele => {
+      // 
+      const allItems = xPathSelectorAll(document, "//div[./*[@aria-label='Page navigation']]/ul[not(@isPatched='true')]");
+      const length = allItems.length;
+      for(let i = 0; i < length; i++) {
+        const ele = allItems[i];
         // add a checkbox for each a
         ele.insertAdjacentHTML('afterbegin', '<div class="itemCheckDiv"><input type="checkbox" name="itemCheck" value="yes" class="itemCheck" onclick="onItemClick(event); return true;" /></div>');
         // add class for the checkbox to apply css
@@ -397,7 +461,17 @@
         }, false);
         // add mark to tell this a has been patched
         ele.setAttribute('isPatched', 'true');
-      });
+        await fetchTorrentFileList(ele);
+      };
+    };
+
+    const fetchTorrentFileList = async (ele) => {
+        const torrentInfo = extractTorrentInfo(ele);
+        await fetchTorrentDetails(torrentInfo);
+        await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
+        torrents[torrentInfo.torrentHref] = torrentInfo;
+        ele.setAttribute('torrentHref', torrentInfo.torrentHref); // set torrentHref, since it's missing in the main dom
+        ele.setAttribute('isFetched', 'true');
     };
 
     const fetchSelectFileList = async() => {
@@ -416,11 +490,7 @@
           showMsg(`fetch filelist inprogress... ${progress}%`);
         }
         const ele = selectedItem[i];
-        const torrentInfo = extractTorrentInfo(ele);
-        await fetchTorrentDetails(torrentInfo);
-        await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
-        torrents[torrentInfo.torrentHref] = torrentInfo;
-        ele.setAttribute('isFetched', 'true');
+        await fetchTorrentFileList(ele);
       }
       return length;
     };
@@ -430,9 +500,9 @@
         console.info(`in loadToPage1();`);
         const isForward = false;
         const jumpSize = 999;
-        const newIndex = await loadMore(searchTxt, orderBy, isForward, currentPageIndexLeft, jumpSize);
+        const newIndex = await loadMore(searchTxt, orderBy, isForward, currentPageIndexLeft, jumpSize, otherArgs);
         currentPageIndexLeft = newIndex;
-        patchA();
+        // patchA();
         return true;
     };
 
@@ -442,9 +512,9 @@
         const isForward = false;
         const count = _this.nextElementSibling.value;
         const jumpSize = Number.parseInt(count, 10);
-        const newIndex = await loadMore(searchTxt, orderBy, isForward, currentPageIndexLeft, jumpSize);
+        const newIndex = await loadMore(searchTxt, orderBy, isForward, currentPageIndexLeft, jumpSize, otherArgs);
         currentPageIndexLeft = newIndex;
-        patchA();
+        // patchA();
         return true;
     };
 
@@ -454,9 +524,9 @@
         // read the CountToLoad from the previous input
         const count = _this.previousElementSibling.value;
         const jumpSize = Number.parseInt(count, 10);
-        const newIndex = await loadMore(searchTxt, orderBy, isForward, currentPageIndexRight, jumpSize);
+        const newIndex = await loadMore(searchTxt, orderBy, isForward, currentPageIndexRight, jumpSize, otherArgs);
         currentPageIndexRight = newIndex;
-        patchA();
+        // patchA();
         return true;
     };
 
@@ -464,9 +534,9 @@
         console.info(`in loadToLastPage();`);
         const isForward = true;
         const jumpSize = 999;
-        const newIndex = await loadMore(searchTxt, orderBy, isForward, currentPageIndexRight, jumpSize);
+        const newIndex = await loadMore(searchTxt, orderBy, isForward, currentPageIndexRight, jumpSize, otherArgs);
         currentPageIndexRight = newIndex;
-        patchA();
+        // patchA();
         return true;
     };
     window_.fetchFileList = async function(_this) {
@@ -504,15 +574,16 @@
     <input type="button" name="allCheck" value="Check All" class="allCheck" onClick="allCheck()" />
 <input type="button" name="invertCheck" value="Invert Check" class="invertCheck" onClick="invertCheck()" />
 <input type="button" name="CopyCheckedLink" value="CopyCheckedLink" class="CopyCheckedLink" onClick="CopyCheckedLink()" />
-<input type="button" name="fetchFileList" value="fetchFileList" class="fetchFileList" onClick="fetchFileList()" />
+<input type="button" name="fetchFileList" value="fetchFileList" class="fetchFileList" onClick="fetchFileList()" disabled />
 <input type="button" name="postToBackend" value="postToBackend" class="postToBackend" onClick="postToBackend()" />
+<br />
     `;
 
     const loadBtns = `
 <br />
 <input type="button" name="loadToPage1" value="loadToFirstPage" class="loadPages" onClick="loadToPage1()" />
 <input type="button" name="loadPrevPages" value="loadPrevPages" class="loadPages" onClick="loadPrevPages(this)" />
-<input type="text" id="CountToLoad" value="5" class="CountToLoad" />
+<input type="text" id="CountToLoad" value="1" class="CountToLoad" />
 <input type="button" name="loadNextPages" value="loadNextPages" class="loadPages" onClick="loadNextPages(this)" />
 <input type="button" name="loadToLastPage" value="loadToLastPage" class="loadPages" onClick="loadToLastPage()" />
     `;
@@ -525,11 +596,22 @@
 //  };
 
   // TODO
-    document.querySelector("form[action='/search'] + div > div:nth-child(1)").insertAdjacentHTML('afterbegin', checkActionBtns);
-    document.querySelector("form[action='/search'] + div > div:nth-child(3)").insertAdjacentHTML('afterbegin', loadBtns);
+  insertPageListHeaderAnchor_top.insertAdjacentElement('afterend', getPageIndexHeader(currentPageIndex));
+  document.querySelector(".result-stats").insertAdjacentHTML('beforebegin', checkActionBtns);
+  document.querySelector(".result-stats").insertAdjacentHTML('afterend', loadBtns);
+  
+  document.querySelector(".pagination").insertAdjacentHTML('beforebegin', checkActionBtns);
+  document.querySelector(".pagination").insertAdjacentHTML('afterend', loadBtns);
 
-    document.querySelector("form[action='/search'] + div > div:last-child").insertAdjacentHTML('afterbegin', checkActionBtns);
-    document.querySelector("form[action='/search'] + div > div:last-child").insertAdjacentHTML('beforeend', loadBtns);
-
-    patchA();
+  if(inIframe()) {
+    // don't invoke patchA in iframe, but only align the patchA to window, so that it could be calld by main frame
+    window_.patchA = patchA;
+    window.patchA = patchA;
+    window_.torrents = torrents;
+    window.torrents = torrents;
+  } else {
+    // run patchA directly in the main frame
+    // TODO: uncomment this
+    // patchA(); // we disable it temporally for loadMore testcase
+  }
 })();

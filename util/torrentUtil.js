@@ -18,8 +18,12 @@ const fetchTorrentDetails = async (torrent) => {
   } else if(statusCode != 200){
     throw new Error(`failed to fetch fileList for torrent: ${torrent.torrentName}`);
   }
-  const files = extractFiles(htmlStr);
-  torrent.files = files;
+
+//const files = extractFiles(htmlStr);
+//torrent.files = files;
+  const extraTorrentInfo = extractExtraTorrentInfo(htmlStr);
+  Object.assign(torrent, extraTorrentInfo);
+
   // return callback(null, torrent);
   return torrent;
 };

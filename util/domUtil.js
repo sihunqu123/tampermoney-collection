@@ -10,7 +10,7 @@ const htmlStrToDocument = (str) => {
 };
 
 const stringToMB = (str) => {
-  if(str === '0' str === '0.0') {
+  if(str === '0' || str === '0.0') {
     return 0;
   }
   const num = Number.parseFloat(`${str.match(/^\d+\.?\d*/g)}`, 10);
@@ -132,12 +132,14 @@ const extractTorrentList = (htmlStr) => {
   return resultTorrents;
 };
 
-const extractFiles = (htmlStr) => {
+const extractExtraTorrentInfo = (htmlStr) => {
   const document_ = htmlStrToDocument(htmlStr);
 
   const fileLIs = Array.from(document_.querySelectorAll('main > .container > .row:nth-of-type(2) > .col.s12 > table:nth-of-type(5) li'));
   const files = fileLIs.map((fileItem) => extractFileInfo(fileItem));
   // console.info(JSON.stringify(files, null, 2));
-  return files;
+  return {
+    files,
+  };
 };
 
