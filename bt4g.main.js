@@ -293,6 +293,10 @@
       .removeKeyWordItems {
         display: inline;
       }
+      .checkActionItem {
+        display: inline;
+        width: 100px !important;
+      }
       .CountToLoad {
         width: 50px !important;
       }
@@ -598,14 +602,14 @@
       return length;
     };
   /**
-   * remove items that contains given keyword(in the input CountToLoad) in title
+   * remove items that contains given keyword(in the input keyword4Junk) in title
    */
     window_.removeKeyWordItems = async function(_this) {
       showMsg(`removeKeyWordItems start... ^_^`);
       const removeKeyWordItems = _this.previousElementSibling.value;
       const allItems = Array.from(document.querySelectorAll(".itemBody"));
       const itemsToHandle = allItems.filter(ele => {
-        if(('' + ele.textContent).indexOf(removeKeyWordItems) > 0) {
+        if(('' + ele.textContent).trim().toLowerCase().indexOf(('' + removeKeyWordItems).toLowerCase()) > -1) {
            return true;
         }
         return false;
@@ -619,19 +623,44 @@
       showMsg(`removeKeyWordItems done... ^_^`);
       return length;
     };
+  /**
+   * remove items that less than given size(in the input sizeThrottle)
+   */
+    window_.removeSmallItems = async function(_this) {
+      showMsg(`removeSmallItems start... ^_^`);
+      const criteria = Number.parseInt(_this.previousElementSibling.value, 10);
+      const allItems = Array.from(document.querySelectorAll(".itemBody"));
+      const itemsToHandle = allItems.filter(ele => {
+        const torrentInfo = extractTorrentInfo(ele);
+        if(torrentInfo.torrentSizeInMB < criteria) {
+           return true;
+        }
+        return false;
+      });
+      const length = itemsToHandle.length;
+      for(let i = 0; i < length; i++) {
+        const ele = itemsToHandle[i];
+        ele.classList.remove("itemBody");
+        ele.classList.add("itemBodyDisabled");
+      }
+      showMsg(`removeSmallItems done... ^_^`);
+      return length;
+    };
 
 
 
     const checkActionBtns = `
-    <input type="button" name="allCheck" value="Check All" class="allCheck" onClick="allCheck()" />
-<input type="button" name="invertCheck" value="Invert Check" class="invertCheck" onClick="invertCheck()" />
-<input type="button" name="CopyCheckedLink" value="CopyCheckedLink" class="CopyCheckedLink" onClick="CopyCheckedLink()" />
-<input type="button" name="fetchFileList" value="fetchFileList" class="fetchFileList" onClick="fetchFileList()" />
-<input type="button" name="postToBackend" value="postToBackend" class="postToBackend" onClick="postToBackend()" />
+    <input type="button" name="allCheck" value="Check All" class="allCheck checkActionItem" onClick="allCheck()" />
+<input type="button" name="invertCheck" value="Invert Check" class="invertCheck checkActionItem" onClick="invertCheck()" />
+<input type="button" name="CopyCheckedLink" value="CopyCheckedLink" class="CopyCheckedLink checkActionItem" onClick="CopyCheckedLink()" />
+<input type="button" name="fetchFileList" value="fetchFileList" class="fetchFileList checkActionItem" onClick="fetchFileList()" />
+<input type="button" name="postToBackend" value="postToBackend" class="postToBackend checkActionItem" onClick="postToBackend()" />
 <div class="action-divider">|</div>
-<input type="button" name="fetch6FilesList" value="fetch6FilesList" class="fetch6FilesList" onClick="fetch6FilesList()" />
-<input type="text" id="keyword4Junk" value="keyword4Junk" class="keyword4Junk" />
-<input type="button" name="removeKeyWordItems" value="removeKeyWordItems" class="removeKeyWordItems" onClick="removeKeyWordItems(this)" />
+<input type="button" name="fetch6FilesList" value="fetch6FilesList" class="fetch6FilesList checkActionItem" onClick="fetch6FilesList()" />
+<input type="text" id="keyword4Junk" value="keyword4Junk" class="keyword4Junk checkActionItem" />
+<input type="button" name="removeKeyWordItems" value="removeKeyWordItems" class="removeKeyWordItems checkActionItem" onClick="removeKeyWordItems(this)" />
+<input type="text" id="sizeThrottle" value="sizeThrottleInMB" class="sizeThrottle checkActionItem" />
+<input type="button" name="removeSmallItems" value="removeSmallItems" class="removeSmallItems checkActionItem" onClick="removeSmallItems(this)" />
     `;
 
     const loadBtns = `
