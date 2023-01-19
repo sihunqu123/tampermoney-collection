@@ -548,7 +548,7 @@
     window_.postToBackend = async function(_this) {
       console.info(`in postToBackend();`);
       // console.info(JSON.stringify(torrents));
-      const url = `http://${serverHOST}:${serverPORT}/add-bt4g`;
+      const url = `http://${serverHOST}:${serverPORT}/add-torrent`;
       const postData = {
         website,
         torrents,
@@ -568,6 +568,115 @@
       return false;
     };
 
+  // fileHandle is an instance of FileSystemFileHandle..
+  async function writeFile(fileHandle, contents) {
+    // Create a FileSystemWritableFileStream to write to.
+    const writable = await fileHandle.createWritable();
+    // Write the contents of the file to the stream.
+    await writable.write(contents);
+    // Close the file and write the contents to disk.
+    await writable.close();
+  }
+
+  async function writeFileDemo() {
+
+      const options = {
+            startIn: 'pictures',
+            suggestedName: 'thisIsSuggestedFilename.txt',
+            types: [
+              {
+                        description: 'Text Files',
+                        accept: {
+                                    'text/plain': ['.txt'],
+                                  },
+                      },
+                  ],
+          };
+      const handle = await window_.showSaveFilePicker(options);
+      writeFile(handle, 'abc\n111');
+  };
+  const readDemo = async () => {
+      const [ fileHandle ] = await window_.showOpenFilePicker();
+      const file = await fileHandle.getFile();
+      const contents = await file.text();
+      console.info(`file Content: ${contents}`);
+      
+  };
+
+  async function verifyPermission(fileHandle, readWrite) {
+    const options = {};
+    if (readWrite) {
+      options.mode = 'readwrite';
+    }
+    // Check if permission was already granted. If so, return true.
+    if ((await fileHandle.queryPermission(options)) === 'granted') {
+      return true;
+    }
+    // Request permission. If the user grants permission, return true.
+    if ((await fileHandle.requestPermission(options)) === 'granted') {
+      return true;
+    }
+    // The user didn't grant permission, so return false.
+    return false;
+  }
+
+  const getDirHandle = async () => {
+    try {
+      const directoryHandleOrUndefined = await get('browserDir');
+      if (directoryHandleOrUndefined) {
+        console.info(`Retrieved directroy handle "${directoryHandleOrUndefined.name}" from IndexedDB.`);
+        const isPermissonValid = await verifyPermission(directoryHandleOrUndefined, true);
+        if(isPermissonValid) {
+          return directoryHandleOrUndefined;
+        }
+      }
+      const dirHandle = await window_.showDirectoryPicker({
+        // startIn: '/d/browserDir',
+        // startIn: 'documents',
+        create: true,
+        mode: 'readwrite',
+      });
+      await set('browserDir', dirHandle);
+      console.info(`Stored directory handle for "$dirHandle.name}" in IndexedDB.`);
+      return dirHandle;
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+
+    window_.selectFolder = async function(_this) {
+      const dirHandle = await getDirHandle();
+      if(!dirHandle) {
+        return;
+      };
+      console.log('before fileList start');
+      for await (const entry of dirHandle.values()) {
+        console.log(entry.kind, entry.name);
+      }
+//    const entries = await dirHandle.values();
+//    let entry;
+//    do {
+//      entry = await entries.next();
+//      console.info(`name: ${entry.kind}, value: ${entry.name}`);
+//    } while(entry);
+      console.log('before fileList end');
+
+      // In an existing directory, create a new directory named "My Documents".
+      const newDirectoryHandle = await dirHandle.getDirectoryHandle('newDir', {
+        create: true,
+      });
+      // In this new directory, create a file named "My Notes.txt".
+      const newFileHandle = await dirHandle.getFileHandle('newFile.txt', { create: true });
+      await writeFile(newFileHandle, 'newfilecontent\nline2');
+      const newFile = await newFileHandle.getFile();
+      const contents = await newFile.text();
+      console.info(`newFile Content:\n${contents}`);
+    };
+
+
+
+
 
 
     const checkActionBtns = `
@@ -576,6 +685,7 @@
 <input type="button" name="CopyCheckedLink" value="CopyCheckedLink" class="CopyCheckedLink" onClick="CopyCheckedLink()" />
 <input type="button" name="fetchFileList" value="fetchFileList" class="fetchFileList" onClick="fetchFileList()" disabled />
 <input type="button" name="postToBackend" value="postToBackend" class="postToBackend" onClick="postToBackend()" />
+<input type="button" name="selectFolder" value="selectFolder" class="selectFolder" onClick="selectFolder()" />
 <br />
     `;
 

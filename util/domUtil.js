@@ -82,7 +82,16 @@ const innerText = (ele) => {
 };
 
 const extractFileInfo = (liDom) => {
-  const fileName = liDom.childNodes[0].textContent.replaceAll('\n', '').trim();
+  let fileName = '';
+  const childNodes = liDom.childNodes;
+  let i = 0;
+  let nextNode = childNodes[i++];
+  do {
+    fileName = fileName + nextNode.textContent.replaceAll('\n', '').trim();
+    nextNode = childNodes[i++];
+  } while (nextNode.nodeType === 3)
+
+  // const fileName = liDom.childNodes[0].textContent.replaceAll('\n', '').trim();
   const matchResult = fileName.match(/\.[^.]+$/);
   let extension = matchResult ? matchResult[0] : '';
   // incase some file extension is crazy
@@ -103,7 +112,8 @@ const MAGNET_PREFIX = 'magnet:?xt=urn:btih:'; // eslint-disable-line no-unused-v
 // Common variable end
 
 const extractTorrentInfo = (ele) => {
-  const torrentName = innerText(ele.querySelector('h5:nth-child(1)'));
+  // const torrentName = innerText(ele.querySelector('h5:nth-child(1)'));
+  const torrentName = ele.querySelector('h5:nth-child(1)').title || innerText(ele.querySelector('h5:nth-child(1)'));
   const torrentHref = ele.querySelector('h5:nth-child(1) > a').href.match(/(?<=\/magnet\/)[^/]+$/g)[0];
   const torrentHrefFull = torrentHref;
   const torrentDetailLink = `https://bt4g.org/magnet/${torrentHref}`;
@@ -188,3 +198,36 @@ const extractExtraTorrentInfo = (htmlStr) => {
   };
 };
 
+const mergeFileList = (ele, files) => {
+  const currentFileLis = Array.from(ele.querySelectorAll(':scope > ul > li'));
+  let listToAdd = files.concat();
+
+  // first, remove duplicate files
+  currentFileLis.forEach((item) => {
+    const fileObj = extractFileInfo(item);
+    listToAdd = listToAdd.filter(itemToAdd => {
+      if(
+        itemToAdd.fileName === fileObj.fileName
+        && itemToAdd.extension === fileObj.extension
+        && itemToAdd.fileSize === fileObj.fileSize
+      )  {
+        return false;
+      }
+      return true;
+    });
+
+  });
+
+  // then add non-dup files into current fileList
+  const containerEle = currentFileLis[0].parentElement;
+  listToAdd.forEach((itemToAdd) => {
+    const { fileName, extension, fileSize } = itemToAdd;
+      
+    const newItem = `
+    <li>${fileName}${extension}&nbsp; <span class="lightColor">${fileSize}</span> </li>
+    `;
+    containerEle.insertAdjacentHTML('beforeend', newItem);
+  });
+
+  return true;
+};

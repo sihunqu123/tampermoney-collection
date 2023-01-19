@@ -15,6 +15,10 @@
 
     };
 
+    const torrent6 = {
+
+    };
+
 
     const postToDB = async (url, data) => {
 
@@ -99,6 +103,11 @@
 
     const getAllIteams = (doc) => {
       const allItems = xPathSelectorAll(doc, "//span[contains(concat(' ',normalize-space(@class),' '),' cpill ')]/parent::div", doc);
+      return allItems;
+    };
+
+    const getAllIteamsEnabled = (doc) => {
+      const allItems = Array.from(document.querySelectorAll(".itemBody"));
       return allItems;
     };
 
@@ -266,6 +275,24 @@
         background: #d2cce6;
         cursor: pointer;
       }
+      .itemBodyDisabled {
+        background: grey;
+      }
+      .itemBodyDisabled:hover {
+        background: grey;
+      }
+      .action-divider {
+        display: inline;
+      }
+      .fetch6FilesList {
+        display: inline;
+      }
+      .keyword4Junk {
+        width: 100px !important;
+      }
+      .removeKeyWordItems {
+        display: inline;
+      }
       .CountToLoad {
         width: 50px !important;
       }
@@ -327,14 +354,14 @@
 
     window_.allCheck = () => {
         console.info(`in allCheck`);
-        getAllIteams(document).forEach(ele => {
+        getAllIteamsEnabled(document).forEach(ele => {
             getCheckbox(ele).checked = true;
         });
     };
 
     window_.invertCheck = () => {
         console.info(`in invertCheck`);
-        getAllIteams(document).forEach(ele => {
+        getAllIteamsEnabled(document).forEach(ele => {
             const checkboxEle = getCheckbox(ele);
             checkboxEle.checked = !checkboxEle.checked;
         });
@@ -416,7 +443,7 @@
     const patchA = () => {
       // find all a
       // const allItems = Array.from(document.querySelectorAll("a[href^='/magnet/']:not([isPatched='true'])"));
-      const allItems = xPathSelectorAll(document, "//span[contains(concat(' ',normalize-space(@class),' '),' cpill ')]/parent::div[not([@isPatched='true'])]");
+      const allItems = xPathSelectorAll(document, "//span[contains(concat(' ',normalize-space(@class),' '),' cpill ')]/parent::div[not(@isPatched='true')]");
       allItems.forEach(ele => {
         const aItem = ele.querySelector('a');
         // add a checkbox for each a
@@ -432,6 +459,14 @@
             itemOnclickHandler(event, ele);
           }
         }, false);
+
+
+        const titleEle = ele.querySelector('h5:nth-child(1) a');
+        const emailProtectedEles = titleEle.querySelectorAll('.__cf_email__');
+        if(emailProtectedEles.length > 0) {
+          titleEle.textContent = titleEle.title; // avoid annoying [email protected]
+          ele.setAttribute('emailProtected', 'true');
+        }
         // add mark to tell this a has been patched
         ele.setAttribute('isPatched', 'true');
       });
@@ -454,8 +489,12 @@
         }
         const ele = selectedItem[i];
         const torrentInfo = extractTorrentInfo(ele);
-        await fetchTorrentDetails(torrentInfo);
-        torrents[torrentInfo.torrentHref] = torrentInfo;
+        if(torrent6[torrentInfo.torrentHref]) { // if it's already loaded by fetch6FilesList
+          torrents[torrentInfo.torrentHref] = torrent6[torrentInfo.torrentHref];;
+        } else { // others fetch it right now
+          await fetchTorrentDetails(torrentInfo);
+          torrents[torrentInfo.torrentHref] = torrentInfo;
+        }
         await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
         ele.setAttribute('isFetched', 'true');
       }
@@ -515,13 +554,13 @@
     window_.postToBackend = async function(_this) {
       console.info(`in postToBackend();`);
       // console.info(JSON.stringify(torrents));
-      const url = `http://${serverHOST}:${serverPORT}/add-bt4g`;
+      const url = `http://${serverHOST}:${serverPORT}/add-torrent`;
       const postData = {
         website,
         torrents,
       };
 
-      showMsg(`postToBackend start... ^_^`);
+      showMsg(`postToBackend ${postData.torrents.length} torrents start... ^_^`);
       const { statusCode, body } = await postRetry(url, postData);
       console.info(`postResponse: statusCode: ${statusCode}, body: ${body}`);
       if(statusCode === 200) {
@@ -533,6 +572,53 @@
       showMsg(`postToBackend failed - statusCode: ${statusCode}, body: ${body}`);
       return false;
     };
+  /**
+   * fetch items fileList that has emailProtected attr
+   */
+    window_.fetch6FilesList = async function(_this) {
+      showMsg(`fetch6FilesList start... ^_^`);
+      const allItems = Array.from(document.querySelectorAll(".itemBody[emailProtected='true']:not([isPopulateed='true'])"));
+      const length = allItems.length;
+      // TODO: 
+      for(let i = 0; i < length; i++) {
+        if(i % 10 === 0) {
+          const progress = ((i / length) * 100).toFixed(2);
+          showMsg(`fetch6FilesList inprogress... ${progress}%`);
+        }
+        const ele = allItems[i];
+        // ele.3gtkj
+        const torrentInfo = extractTorrentInfo(ele);
+        await fetchTorrentDetails(torrentInfo);
+        torrent6[torrentInfo.torrentHref] = torrentInfo;
+        mergeFileList(ele, torrentInfo.files);
+        
+        await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
+        ele.setAttribute('isPopulateed', 'true');
+      }
+      return length;
+    };
+  /**
+   * remove items that contains given keyword(in the input CountToLoad) in title
+   */
+    window_.removeKeyWordItems = async function(_this) {
+      showMsg(`removeKeyWordItems start... ^_^`);
+      const removeKeyWordItems = _this.previousElementSibling.value;
+      const allItems = Array.from(document.querySelectorAll(".itemBody"));
+      const itemsToHandle = allItems.filter(ele => {
+        if(('' + ele.textContent).indexOf(removeKeyWordItems) > 0) {
+           return true;
+        }
+        return false;
+      });
+      const length = itemsToHandle.length;
+      for(let i = 0; i < length; i++) {
+        const ele = itemsToHandle[i];
+        ele.classList.remove("itemBody");
+        ele.classList.add("itemBodyDisabled");
+      }
+      showMsg(`removeKeyWordItems done... ^_^`);
+      return length;
+    };
 
 
 
@@ -542,6 +628,10 @@
 <input type="button" name="CopyCheckedLink" value="CopyCheckedLink" class="CopyCheckedLink" onClick="CopyCheckedLink()" />
 <input type="button" name="fetchFileList" value="fetchFileList" class="fetchFileList" onClick="fetchFileList()" />
 <input type="button" name="postToBackend" value="postToBackend" class="postToBackend" onClick="postToBackend()" />
+<div class="action-divider">|</div>
+<input type="button" name="fetch6FilesList" value="fetch6FilesList" class="fetch6FilesList" onClick="fetch6FilesList()" />
+<input type="text" id="keyword4Junk" value="keyword4Junk" class="keyword4Junk" />
+<input type="button" name="removeKeyWordItems" value="removeKeyWordItems" class="removeKeyWordItems" onClick="removeKeyWordItems(this)" />
     `;
 
     const loadBtns = `

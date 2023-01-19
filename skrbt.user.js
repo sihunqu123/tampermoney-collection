@@ -10,6 +10,7 @@
 // @grant       GM_cookie
 // @grant       GM.cookie
 // @grant       GM_xmlhttpRequest
+// @require      file://C:\github\tampermoney-collection\util\idb-keyval.js
 // @require      file://C:\github\tampermoney-collection\util\commonUtil-skrbt.js
 // @require      file://C:\github\tampermoney-collection\util\domUtil-skrbt.js
 // @require      file://C:\github\tampermoney-collection\util\torrentUtil.js

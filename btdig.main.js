@@ -524,7 +524,7 @@
     window_.postToBackend = async function(_this) {
       console.info(`in postToBackend();`);
       // console.info(JSON.stringify(torrents));
-      const url = `http://${serverHOST}:${serverPORT}/add-bt4g`;
+      const url = `http://${serverHOST}:${serverPORT}/add-torrent`;
       const postData = {
         website,
         torrents,
