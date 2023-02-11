@@ -103,6 +103,11 @@
       return allItems;
     };
 
+    const getAllIteamsEnabled = (doc) => {
+      const allItems = Array.from(document.querySelectorAll(".itemBody"));
+      return allItems;
+    };
+
     const getCheckbox = (itemContainer) => {
       return itemContainer.children[0].children[0];
     };
@@ -262,6 +267,12 @@
         background: #d2cce6 !important;
         cursor: pointer;
       }
+      .itemBodyDisabled {
+        background: grey !important;
+      }
+      .itemBodyDisabled:hover {
+        background: grey;
+      }
       .CountToLoad {
         width: 50px !important;
       }
@@ -297,6 +308,16 @@
       }
       .refreshDiv .refreshHeader .refreshMsg{
         color: red;
+      }
+      .keyword4Junk {
+        width: 100px !important;
+      }
+      .removeKeyWordItems {
+        display: inline;
+      }
+      .checkActionItem {
+        display: inline;
+        width: 100px !important;
       }
       .IFixedIt {
         height: 100%;
@@ -337,14 +358,14 @@
 
     window_.allCheck = () => {
         console.info(`in allCheck`);
-        getAllIteams(document).forEach(ele => {
+        getAllIteamsEnabled(document).forEach(ele => {
             getCheckbox(ele).checked = true;
         });
     };
 
     window_.invertCheck = () => {
         console.info(`in invertCheck`);
-        getAllIteams(document).forEach(ele => {
+        getAllIteamsEnabled(document).forEach(ele => {
             const checkboxEle = getCheckbox(ele);
             checkboxEle.checked = !checkboxEle.checked;
         });
@@ -544,6 +565,108 @@
       return false;
     };
 
+  /**
+   * remove items that contains given keyword(in the input keyword4Junk) in title
+   */
+    window_.removeKeyWordItems = async function(_this) {
+      showMsg(`removeKeyWordItems start... ^_^`);
+      const removeKeyWordItems = _this.previousElementSibling.value;
+      // get all items
+      const allItems = Array.from(document.querySelectorAll(".itemBody"));
+      // filter itmes that contains given text
+      const itemsToHandle = allItems.filter(ele => {
+        if(('' + ele.textContent).trim().toLowerCase().indexOf(('' + removeKeyWordItems).toLowerCase()) > -1) {
+           return true;
+        }
+        return false;
+      });
+      // disable those junk items
+      const length = itemsToHandle.length;
+      for(let i = 0; i < length; i++) {
+        const ele = itemsToHandle[i];
+        ele.classList.remove("itemBody");
+        ele.classList.add("itemBodyDisabled");
+      }
+      showMsg(`removeKeyWordItems done... ^_^`);
+      return length;
+    };
+  /**
+   * remove items that less than given size(in the input sizeThrottle)
+   */
+    window_.removeSmallItems = async function(_this) {
+      showMsg(`removeSmallItems start... ^_^`);
+      const criteria = Number.parseInt(_this.previousElementSibling.value, 10);
+      const allItems = Array.from(document.querySelectorAll(".itemBody"));
+      const itemsToHandle = allItems.filter(ele => {
+        const torrentInfo = extractTorrentInfo(ele);
+        if(torrentInfo.torrentSizeInMB < criteria) {
+           return true;
+        }
+        return false;
+      });
+      const length = itemsToHandle.length;
+      for(let i = 0; i < length; i++) {
+        const ele = itemsToHandle[i];
+        ele.classList.remove("itemBody");
+        ele.classList.add("itemBodyDisabled");
+      }
+      showMsg(`removeSmallItems done... ^_^`);
+      return length;
+    };
+
+  const getSuffix = (i) => {
+    const retVal = [];
+    if (i < 10) {
+      retVal.push(`0000${i}`, `000${i}`, `0${i}`, `00${i}`, i);
+    } else if (i < 100) {
+      retVal.push(`000${i}`, `00${i}`, `0${i}`, i);
+    } else if (i < 1000) {
+      retVal.push(`00${i}`, `0${i}`, i);
+    } else if (i < 10000) {
+      retVal.push(`0${i}`, i);
+    } else {
+      retVal.push(i);
+    }
+    return retVal;
+  };
+  //
+  // gunm00046
+
+  const do1Index = async (i) => {
+    const isForward = true;
+    const jumpSize = 1;
+    const suffixes = getSuffix(i);
+    for (let j = 0; j < suffixes.length; j++) {
+      const suffix = suffixes[j];
+      const querytxt = `${searchTxt}${suffix}`;
+      try {
+        const newIndex = await loadMore(querytxt, orderBy, isForward, 0, jumpSize);
+      } catch (e) {
+        // console.debug(`${url} not passed`);
+      }
+      await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
+    }
+    return true;
+  };
+
+    window_.qryWithPrefix0 = async function(_this) {
+      showMsg(`qryWithPrefix0 start... ^_^`);
+      const start = 1;
+      // const end = 6;
+      const end = Number.parseInt(_this.previousElementSibling.value, 10);
+
+      for (let i = start; i < end; i++) {
+        showMsg(`qryWithPrefix0 inprogress... ${i}~${end}`);
+        await do1Index(i);
+        await sleepMS(1000);
+      }
+      
+      // console.info(`result: ${JSON.stringify(result)}`);
+      console.info('done');
+
+      showMsg(`qryWithPrefix0 done... ^_^`);
+      return true;
+    };
 
 
     const checkActionBtns = `
@@ -552,6 +675,13 @@
 <input type="button" name="CopyCheckedLink" value="CopyCheckedLink" class="CopyCheckedLink" onClick="CopyCheckedLink()" />
 <input type="button" name="fetchFileList" value="fetchFileList" class="fetchFileList" onClick="fetchFileList()" />
 <input type="button" name="postToBackend" value="postToBackend" class="postToBackend" onClick="postToBackend()" />
+<div class="action-divider">|</div>
+<input type="text" id="keyword4Junk" value="keyword4Junk" class="keyword4Junk checkActionItem" />
+<input type="button" name="removeKeyWordItems" value="removeKeyWordItems" class="removeKeyWordItems checkActionItem" onClick="removeKeyWordItems(this)" />
+<input type="text" id="sizeThrottle" value="sizeThrottleInMB" class="sizeThrottle checkActionItem" />
+<input type="button" name="removeSmallItems" value="removeSmallItems" class="removeSmallItems checkActionItem" onClick="removeSmallItems(this)" />
+<input type="text" id="qryWithPrefix0End" value="qryWithPrefix0End" class="qryWithPrefix0End checkActionItem" />
+<input type="button" name="qryWithPrefix0" value="qryWithPrefix0" class="qryWithPrefix0 checkActionItem" onClick="qryWithPrefix0(this)" />
     `;
 
     const loadBtns = `

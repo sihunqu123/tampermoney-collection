@@ -647,6 +647,60 @@
       return length;
     };
 
+  const getSuffix = (i) => {
+    const retVal = [];
+    if (i < 10) {
+      retVal.push(`0000${i}`, `000${i}`, `0${i}`, `00${i}`, i);
+    } else if (i < 100) {
+      retVal.push(`000${i}`, `00${i}`, `0${i}`, i);
+    } else if (i < 1000) {
+      retVal.push(`00${i}`, `0${i}`, i);
+    } else if (i < 10000) {
+      retVal.push(`0${i}`, i);
+    } else {
+      retVal.push(i);
+    }
+    return retVal;
+  };
+  //
+  // gunm00046
+
+  const do1Index = async (i) => {
+    const isForward = true;
+    const jumpSize = 999;
+    const suffixes = getSuffix(i);
+    for (let j = 0; j < suffixes.length; j++) {
+      const suffix = suffixes[j];
+      const querytxt = `${searchTxt}${suffix}`;
+      try {
+        const newIndex = await loadMore(querytxt, orderBy, isForward, 0, jumpSize);
+      } catch (e) {
+        // console.debug(`${url} not passed`);
+      }
+      await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
+    }
+    return true;
+  };
+
+    window_.qryWithPrefix0 = async function(_this) {
+      showMsg(`qryWithPrefix0 start... ^_^`);
+      const start = 1;
+      // const end = 6;
+      const end = Number.parseInt(_this.previousElementSibling.value, 10);
+
+      for (let i = start; i < end; i++) {
+        showMsg(`qryWithPrefix0 inprogress... ${i}~${end}`);
+        await do1Index(i);
+        await sleepMS(1000);
+      }
+      
+      // console.info(`result: ${JSON.stringify(result)}`);
+      console.info('done');
+
+      showMsg(`qryWithPrefix0 done... ^_^`);
+      return true;
+    };
+
 
 
     const checkActionBtns = `
@@ -661,6 +715,8 @@
 <input type="button" name="removeKeyWordItems" value="removeKeyWordItems" class="removeKeyWordItems checkActionItem" onClick="removeKeyWordItems(this)" />
 <input type="text" id="sizeThrottle" value="sizeThrottleInMB" class="sizeThrottle checkActionItem" />
 <input type="button" name="removeSmallItems" value="removeSmallItems" class="removeSmallItems checkActionItem" onClick="removeSmallItems(this)" />
+<input type="text" id="qryWithPrefix0End" value="qryWithPrefix0End" class="qryWithPrefix0End checkActionItem" />
+<input type="button" name="qryWithPrefix0" value="qryWithPrefix0" class="qryWithPrefix0 checkActionItem" onClick="qryWithPrefix0(this)" />
     `;
 
     const loadBtns = `

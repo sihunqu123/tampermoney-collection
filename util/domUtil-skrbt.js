@@ -88,7 +88,7 @@ const extractFileInfo = (liDom) => {
   let extension = matchResult ? matchResult[0] : '';
   // incase some file extension is crazy
   if(extension.length > 31) {
-    extension = extension.substr(4);
+    extension = extension.substr(0, 4);
   }
   const fileSize = innerText(liDom.lastElementChild);
   const fileSizeInMB = stringToMB(fileSize);
