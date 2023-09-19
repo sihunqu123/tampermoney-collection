@@ -1,9 +1,10 @@
 
+const MAGNET_LINK = 'magnetLink';
 
 (function() {
     'use strict';
     console.info(`=================bt4g hacked`);
-    const serverHOST = '192.168.10.16';
+    const serverHOST = '192.168.10.2';
     const serverPORT = 8180;
     const website = 'bt4g';
     const requestIntervalLow = 1;
@@ -120,11 +121,36 @@
       checkboxEle.checked = !checkboxEle.checked;
     };
 
-    const getMagnet = (itemContainer) => {
+    const getMagnet = async (itemContainer) => {
+      let magnetLink = itemContainer.getAttribute(MAGNET_LINK);
+      if(magnetLink) { // if it's already fetched, just return the fetched value
+        return magnetLink;
+      }
+
+      // fetch the magnetLink
       const href = itemContainer.querySelector('a').href;
-      const magnet = 'magnet:?xt=urn:btih:' + href.match(/(?<=\/magnet\/)[^\/]+$/g)[0];
-      return magnet;
+
+      // window.location.host
+      // 'bt4gprx.com'
+      const { body: htmlStr, statusCode } = await fetchBT4GRetry(href);
+      if(statusCode === 200) { // some fileDetails might have been removed.
+        const document_ = htmlStrToDocument(htmlStr);
+        // xPathSelector(document, "//a/img[@src='/static/img/magnet.png']/parent::*").href.match(/(?<=\/hash\/).*/)[0]
+        const linkA = xPathSelector(document_, "//a/img[@src='/static/img/magnet.png']/parent::*", document_);
+        if(linkA && linkA.href) {
+          const magnetContent = linkA.href.match(/(?<=\/hash\/)[^?]+/)[0];
+          magnetLink = 'magnet:?xt=urn:btih:' + magnetContent;
+          itemContainer.setAttribute(MAGNET_LINK, magnetLink);
+        } else {
+          console.error(`failed to fetch magnetLink for torrent: ${magnetLink}`);
+        }
+      } else {
+        // throw new Error(`failed to fetch magnetLink for torrent: ${magnetLink}`);
+          console.error(`failed to fetch magnetLink for torrent: ${magnetLink}`);
+      }
+      return magnetLink;
     };
+    window_.getMagnet = getMagnet;
 
     const loadMore = async(searchTxt, orderBy, isForward, currentPageIndex, jumpSize) => {
         const beginIndex = 0; // skip page one since it's already on first page
@@ -142,10 +168,8 @@
         let i = isForward ? (currentPageIndex + 1) : (currentPageIndex - 1);
         let document_ = null;
         let pagesToLoad = jumpSize;
-        let baseUrl = `https://bt4g.org/search/${searchTxt}/`;
-        if(orderBy) {
-            baseUrl += `${orderBy}/`;
-        }
+        // let baseUrl = `https://bt4g.org/search/${searchTxt}/`;
+        let baseUrl = `https://bt4gprx.com/search?q=${searchTxt}&orderby=${orderBy}&p=`;
         let url = '';
         let newCurrentPage = currentPageIndex;
 
@@ -202,39 +226,70 @@
     };
 
 
-    const extractParam = (path) => {
-        const arr = path.split('/');
-        if(arr.length === 4) { // order by time, which is the default one. e.g. '/search/uncen/1'
-            const searchTxt = arr[2];
-            const orderBy = '';
-            const pageIndex = parseInt(arr[3], 10);
-            return {
-                searchTxt,
-                orderBy,
-                pageIndex,
-            };
-        } else if(arr.length === 3) {
-            const searchTxt = arr[2];
-            const orderBy = '';
-            const pageIndex = 1;
-            return {
-                searchTxt,
-                orderBy,
-                pageIndex,
-            };
-        } else { // not order by time. e.g. '/search/uncen/bysize/1'
-            const searchTxt = arr[2];
-            const orderBy = arr[3];
-            const pageIndex = parseInt(arr[4], 10);
-            return {
-                searchTxt,
-                orderBy,
-                pageIndex,
-            };
-        }
+    const extractParamPath = (path) => {
+      const arr = path.split('/');
+      if(arr.length === 4) { // order by time, which is the default one. e.g. '/search/uncen/1'
+          const searchTxt = arr[2];
+          const orderBy = '';
+          const pageIndex = parseInt(arr[3], 10);
+          return {
+              searchTxt,
+              orderBy,
+              pageIndex,
+          };
+      } else if(arr.length === 3) {
+          const searchTxt = arr[2];
+          const orderBy = '';
+          const pageIndex = 1;
+          return {
+              searchTxt,
+              orderBy,
+              pageIndex,
+          };
+      } else { // not order by time. e.g. '/search/uncen/bysize/1'
+          const searchTxt = arr[2];
+          const orderBy = arr[3];
+          const pageIndex = parseInt(arr[4], 10);
+          return {
+              searchTxt,
+              orderBy,
+              pageIndex,
+          };
+      }
     };
 
-    const { searchTxt, orderBy, pageIndex } = extractParam(window_.location.pathname + '');
+    const extractParamSearch = (path) => {
+      const matchedStr = path.match(/\?.*/)[0];
+      const queryArr = matchedStr.substr(1).split('&');
+
+      const querys = {};
+
+      queryArr.forEach(str => {
+        const arr = str.split('=');
+        const key = arr[0];
+        const value = arr[1];
+        querys[key] = value;
+      });
+      const { q, p, orderby } = querys;
+      const searchTxt = q;
+      const orderBy = orderby;
+      const pageIndex = p ? parseInt(p) : 1; // start with 1
+      return {
+	      searchTxt,
+	      orderBy,
+	      pageIndex,
+      };
+    };
+
+    let searchTxt = null;
+    let orderBy = null;
+    let pageIndex = null;
+
+    if(window_.location.search.indexOf('q=') > -1) { // query is inside location.search
+      ({ searchTxt, orderBy, pageIndex } = extractParamSearch(window_.location.search + ''));
+    } else { // query is inside path
+      ({ searchTxt, orderBy, pageIndex } = extractParamPath(window_.location.pathname + ''));
+    }
     let currentPageIndex = pageIndex;
     let currentPageIndexLeft = currentPageIndex;
     let currentPageIndexRight = currentPageIndex;
@@ -380,24 +435,26 @@
         return true;
     };
 
-    window_.CopyCheckedLink = function() {
-        console.info(`in CopyCheckedLink`);
-        const resultTorrent = [];
-        const allItems = getAllIteams(document);
-        allItems.forEach(ele => {
-            const checkboxEle = getCheckbox(ele);
-            if(checkboxEle.checked) {
-                const newUrl = getMagnet(ele);
-                resultTorrent.push(newUrl);
-                //            ele.href = newUrl;
-            }
-        });
-        // console.info(JSON.stringify(resultTorrent));
-        console.info(resultTorrent.join('\n'));
-        // window_.prompt('The selected links are show below:', resultTorrent.join('\n'));
-        // window_.navigator.clipboard.writeText(resultTorrent.join('\n'));
-        copyToClipboard(resultTorrent.join('\n'));
-        showMsg(`Copied ${resultTorrent.length} items to Clipboard! ^_^`);
+    window_.CopyCheckedLink = async function() {
+      console.info(`in CopyCheckedLink`);
+      const resultTorrent = [];
+      const allItems = getAllIteams(document);
+      for(let i = 0; i < allItems.length; i++) {
+        const ele = allItems[i];
+        const checkboxEle = getCheckbox(ele);
+        if(checkboxEle.checked) {
+            const newUrl = await getMagnet(ele);
+            resultTorrent.push(newUrl);
+            //            ele.href = newUrl;
+        }
+
+      }
+      // console.info(JSON.stringify(resultTorrent));
+      console.info(resultTorrent.join('\n'));
+      // window_.prompt('The selected links are show below:', resultTorrent.join('\n'));
+      // window_.navigator.clipboard.writeText(resultTorrent.join('\n'));
+      copyToClipboard(resultTorrent.join('\n'));
+      showMsg(`Copied ${resultTorrent.length} items to Clipboard! ^_^`);
     };
 
     const getElementIndexAmondSiblings = (ele) => {
@@ -492,7 +549,8 @@
           showMsg(`fetch filelist inprogress... ${progress}%`);
         }
         const ele = selectedItem[i];
-        const torrentInfo = extractTorrentInfo(ele);
+
+        const torrentInfo = await extractTorrentInfo(ele);
         if(torrent6[torrentInfo.torrentHref]) { // if it's already loaded by fetch6FilesList
           torrents[torrentInfo.torrentHref] = torrent6[torrentInfo.torrentHref];;
         } else { // others fetch it right now
@@ -564,7 +622,7 @@
         torrents,
       };
 
-      showMsg(`postToBackend ${postData.torrents.length} torrents start... ^_^`);
+      showMsg(`postToBackend ${Object.keys(torrents).length} torrents start... ^_^`);
       const { statusCode, body } = await postRetry(url, postData);
       console.info(`postResponse: statusCode: ${statusCode}, body: ${body}`);
       if(statusCode === 200) {
@@ -573,7 +631,9 @@
         showMsg(`${insertedItems_thisTime.length} new items added, and they has been copied to Clipboard! ^_^`);
         return true;
       }
-      showMsg(`postToBackend failed - statusCode: ${statusCode}, body: ${body}`);
+      const endMsg = `postToBackend failed - statusCode: ${statusCode}, body: ${body}, is the serverHOST correct??`;
+      console.info(endMsg);
+      showMsg(`${endMsg}`);
       return false;
     };
   /**
@@ -591,7 +651,7 @@
         }
         const ele = allItems[i];
         // ele.3gtkj
-        const torrentInfo = extractTorrentInfo(ele);
+        const torrentInfo = await extractTorrentInfo(ele);
         await fetchTorrentDetails(torrentInfo);
         torrent6[torrentInfo.torrentHref] = torrentInfo;
         mergeFileList(ele, torrentInfo.files);
@@ -623,6 +683,12 @@
       showMsg(`removeKeyWordItems done... ^_^`);
       return length;
     };
+
+  const asyncFilter = async (arr, predicate) => {
+    const results = await Promise.all(arr.map(predicate));
+
+    return arr.filter((_v, index) => results[index]);
+  }
   /**
    * remove items that less than given size(in the input sizeThrottle)
    */
@@ -630,12 +696,12 @@
       showMsg(`removeSmallItems start... ^_^`);
       const criteria = Number.parseInt(_this.previousElementSibling.value, 10);
       const allItems = Array.from(document.querySelectorAll(".itemBody"));
-      const itemsToHandle = allItems.filter(ele => {
-        const torrentInfo = extractTorrentInfo(ele);
+      const itemsToHandle = await asyncFilter(allItems, async (ele) => {
+        const torrentInfo = await extractTorrentInfo(ele);
         if(torrentInfo.torrentSizeInMB < criteria) {
            return true;
         }
-        return false;
+        return false; 
       });
       const length = itemsToHandle.length;
       for(let i = 0; i < length; i++) {

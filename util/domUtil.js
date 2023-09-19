@@ -111,12 +111,14 @@ const extractFileInfo = (liDom) => {
 const MAGNET_PREFIX = 'magnet:?xt=urn:btih:'; // eslint-disable-line no-unused-vars
 // Common variable end
 
-const extractTorrentInfo = (ele) => {
+const extractTorrentInfo = async (ele) => {
   // const torrentName = innerText(ele.querySelector('h5:nth-child(1)'));
   const torrentName = ele.querySelector('h5:nth-child(1)').title || innerText(ele.querySelector('h5:nth-child(1)'));
-  const torrentHref = ele.querySelector('h5:nth-child(1) > a').href.match(/(?<=\/magnet\/)[^/]+$/g)[0];
+  const torrentSiteUNID= ele.querySelector('h5:nth-child(1) > a').href.match(/(?<=\/magnet\/)[^/]+$/g)[0];
+  const tmpVal = await window_.getMagnet(ele);
+  const torrentHref = tmpVal.substr(20); // remvoe the prefix 'magnet:?xt=urn:btih:'
   const torrentHrefFull = torrentHref;
-  const torrentDetailLink = `https://bt4g.org/magnet/${torrentHref}`;
+  const torrentDetailLink = `https://bt4g.org/magnet/${torrentSiteUNID}`;
   const torrentType = innerText(ele.querySelector(':scope > span:nth-of-type(1)'));
 
   const torrentCreateTime = innerText(ele.querySelector(':scope > span:nth-of-type(2) > b'));
@@ -176,12 +178,12 @@ const extractTorrentInfo = (ele) => {
   };
 };
 
-const extractTorrentList = (htmlStr) => {
+const extractTorrentList = async (htmlStr) => {
   const document_ = htmlStrToDocument(htmlStr);
 
   const allItems = Array.from(document_.querySelectorAll('main > .container > .row:nth-of-type(3) > .col.s12 > div:nth-of-type(n+2)'));
 
-  const resultTorrents = allItems.map(extractTorrentInfo);
+  const resultTorrents = await Promise.all(allItems.map(extractTorrentInfo));
   // console.info(JSON.stringify(resultTorrents, null, 2));
   // console.info(resultTorrents.join('\n'));
   return resultTorrents;

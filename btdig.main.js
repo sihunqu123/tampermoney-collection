@@ -3,7 +3,7 @@
 (function() {
     'use strict';
     console.info(`=================btdig hacked`);
-    const serverHOST = '192.168.10.16';
+    const serverHOST = '192.168.10.2';
     const serverPORT = 8180;
     const website = 'btdig';
     const requestIntervalLow = 1;
@@ -561,22 +561,30 @@
         showMsg(`${insertedItems_thisTime.length} new items added, and they has been copied to Clipboard! ^_^`);
         return true;
       }
-      showMsg(`postToBackend failed - statusCode: ${statusCode}, body: ${body}`);
+      const endMsg = `postToBackend failed - statusCode: ${statusCode}, body: ${body}`;
+      console.info(endMsg);
+      showMsg(`${endMsg}`);
       return false;
     };
 
   /**
    * remove items that contains given keyword(in the input keyword4Junk) in title
    */
-    window_.removeKeyWordItems = async function(_this) {
-      showMsg(`removeKeyWordItems start... ^_^`);
-      const removeKeyWordItems = _this.previousElementSibling.value;
+    window_.removeKeyWordItemsImt = async function(criteria, isReg) {
       // get all items
       const allItems = Array.from(document.querySelectorAll(".itemBody"));
       // filter itmes that contains given text
       const itemsToHandle = allItems.filter(ele => {
-        if(('' + ele.textContent).trim().toLowerCase().indexOf(('' + removeKeyWordItems).toLowerCase()) > -1) {
-           return true;
+        const itemText = ('' + ele.textContent).trim().toLowerCase();
+        if(isReg) {
+          
+          if(new RegExp(criteria).test(itemText)) {
+             return true;
+          }
+        } else {
+          if(itemText.indexOf(('' + criteria).toLowerCase()) > -1) {
+             return true;
+          }
         }
         return false;
       });
@@ -587,7 +595,27 @@
         ele.classList.remove("itemBody");
         ele.classList.add("itemBodyDisabled");
       }
+      return length;
+    };
+
+  /**
+   * remove items that contains given keyword(in the input keyword4Junk) in title
+   */
+    window_.removeKeyWordItems = async function(_this) {
+      showMsg(`removeKeyWordItems start... ^_^`);
+      const criteria = _this.previousElementSibling.value;
+      const retVal = removeKeyWordItemsImt(criteria, false);
       showMsg(`removeKeyWordItems done... ^_^`);
+      return retVal;
+    };
+  /**
+   * remove items that contains given reg(in the input keyword4Junk) in title
+   */
+    window_.removeRegItems = async function(_this) {
+      showMsg(`removeRegItems start... ^_^`);
+      const criteria = _this.previousElementSibling.previousElementSibling.value;
+      const retVal = removeKeyWordItemsImt(criteria, true);
+      showMsg(`removeRegItems done... ^_^`);
       return length;
     };
   /**
@@ -678,6 +706,7 @@
 <div class="action-divider">|</div>
 <input type="text" id="keyword4Junk" value="keyword4Junk" class="keyword4Junk checkActionItem" />
 <input type="button" name="removeKeyWordItems" value="removeKeyWordItems" class="removeKeyWordItems checkActionItem" onClick="removeKeyWordItems(this)" />
+<input type="button" name="removeRegItems" value="removeRegItems" class="removeRegItems checkActionItem" onClick="removeRegItems(this)" />
 <input type="text" id="sizeThrottle" value="sizeThrottleInMB" class="sizeThrottle checkActionItem" />
 <input type="button" name="removeSmallItems" value="removeSmallItems" class="removeSmallItems checkActionItem" onClick="removeSmallItems(this)" />
 <input type="text" id="qryWithPrefix0End" value="qryWithPrefix0End" class="qryWithPrefix0End checkActionItem" />
