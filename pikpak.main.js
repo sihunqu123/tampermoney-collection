@@ -59,85 +59,85 @@
       .hiddenEle {
         display: none !important;
       }
-    .itemCheck {
+      .itemCheck {
         width: 30px;
-    height: 30px;
-    color: red;
-    left: 30px;
-    margin-top: 3px;
-    border-color: green;
-    opacity: 1 !important;
-    pointer-events: unset !important;
-/* border-width: 10px; */
-/* border-style: solid; */
-/* line-height: 20; */
-/* padding: 3px; */
-/* z-index: 999; */
-}
-  .itemCheck:hover {
-    cursor: pointer;
-  }
-  .itemBody {
-    background: white;
-    /*        cursor: pointer; */
-  }
-  .itemBody:hover {
-    background: #d2cce6;
-    cursor: pointer;
-  }
-  .CountToLoad {
-    width: 50px !important;
-  }
-  .refreshDiv {
-    display: flex;
-    flex-direction: column;
-    position: fixed;
-    z-index: 9999;
-    width: 90vw;
-    height: 90vh;
-    background-color: #547f52;    
-    opacity: 0.9;
-    margin: 5vh 5vw;
-    left: 0px;
-    top: 10px;
-  }
-  .refreshDiv  .refreshIframe {
-    width: 90vw;
-    height: calc(90vw - 100px);
-  }
-  .refreshDiv .refreshHeader {
-    width: 100%;
-    height: 100px;
-    line-height: 100px;
-    font-size: 85px;
-    text-align: center;
-    color: coral;
-    position: relative;
-  }
-  .refreshDiv .refreshHeader .refreshMsg{
-    color: red;
-  }
-  .IFixedIt {
-    height: 100%;
-    font-size: 30px;
-    display: flex;
-    position: absolute;
-    right: 0;
-    top: 0;
-  }
-  .pageListheader {
-    width: calc(100vw - 150px);
-    border-top-style: ridge;
-  }
-  .pageAnchor {
-    width: 80vw;
-  }
-  .downloadFolder {
-    position: absolute;
-    right: 80px;
-    top: 30px;
-  }
-`;
+        height: 30px;
+        color: red;
+        left: 30px;
+        margin-top: 3px;
+        border-color: green;
+        opacity: 1 !important;
+        pointer-events: unset !important;
+        /* border-width: 10px; */
+        /* border-style: solid; */
+        /* line-height: 20; */
+        /* padding: 3px; */
+        /* z-index: 999; */
+      }
+      .itemCheck:hover {
+        cursor: pointer;
+      }
+      .itemBody {
+        background: white;
+        /*        cursor: pointer; */
+      }
+      .itemBody:hover {
+        background: #d2cce6;
+        cursor: pointer;
+      }
+      .CountToLoad {
+        width: 50px !important;
+      }
+      .refreshDiv {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        z-index: 9999;
+        width: 90vw;
+        height: 90vh;
+        background-color: #547f52;
+        opacity: 0.9;
+        margin: 5vh 5vw;
+        left: 0px;
+        top: 10px;
+      }
+      .refreshDiv  .refreshIframe {
+        width: 90vw;
+        height: calc(90vw - 100px);
+      }
+      .refreshDiv .refreshHeader {
+        width: 100%;
+        height: 100px;
+        line-height: 100px;
+        font-size: 85px;
+        text-align: center;
+        color: coral;
+        position: relative;
+      }
+      .refreshDiv .refreshHeader .refreshMsg{
+        color: red;
+      }
+      .IFixedIt {
+        height: 100%;
+        font-size: 30px;
+        display: flex;
+        position: absolute;
+        right: 0;
+        top: 0;
+      }
+      .pageListheader {
+        width: calc(100vw - 150px);
+        border-top-style: ridge;
+      }
+      .pageAnchor {
+        width: 80vw;
+      }
+      .downloadFolder {
+        position: absolute;
+        right: 80px;
+        top: 30px;
+      }
+    `;
 
     if(style.styleSheet){
         style.styleSheet.cssText=customCSS;
@@ -195,7 +195,7 @@
     }
     await sleepMS(5000);
   }
-  
+
 
 //  document.querySelector("main > .container div:nth-child(4) > div > div > span").insertAdjacentHTML('beforeend', loadBtns);
 //

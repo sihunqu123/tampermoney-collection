@@ -83,18 +83,18 @@ const postRetry = async (url, postJSON, timesToRetry = 0) => {
   let res = null;
   let body = null;
 
-//const formData = new FormData();
-//const keys = Object.keys(postJSON);
-//keys.forEach(key => {
-//    formData.append(key, postJSON[key]);
-//});
+  //const formData = new FormData();
+  //const keys = Object.keys(postJSON);
+  //keys.forEach(key => {
+  //    formData.append(key, postJSON[key]);
+  //});
   try {
     console.info(`fetch url: ${url}`);
     // will NOT use fetch since it doesn't work for CROS, and HTTPS -> HTTP downgrad case
-//  res = await fetch(url, {
-//      method: 'POST',
-//      body: formData,
-//  });
+    //  res = await fetch(url, {
+    //      method: 'POST',
+    //      body: formData,
+    //  });
 
     // https://wiki.greasespot.net/GM.xmlHttpRequest
     const res = await new Promise(resolve => {
@@ -102,8 +102,8 @@ const postRetry = async (url, postJSON, timesToRetry = 0) => {
         method:     "POST",
         url:        url,
         data:       JSON.stringify(postJSON),
-//      dataType: 'json',
-//      contentType: 'application/json',
+        //      dataType: 'json',
+        //      contentType: 'application/json',
         headers:    {
           'Content-Type': 'application/json',
         },
@@ -147,7 +147,7 @@ const postRetry = async (url, postJSON, timesToRetry = 0) => {
         return postRetry(url, timesToRetry);
       }
 
-      body = `Retry exceed for url: ${url} with statusCode: ${statusCode}`; 
+      body = `Retry exceed for url: ${url} with statusCode: ${statusCode}`;
       console.error(body);
     }
 
@@ -172,7 +172,7 @@ const sleepMS = (timeInMS) => new Promise((resolve) => {
 });
 
 
-function randomIntFromInterval(min, max) { // min and max included 
+function randomIntFromInterval(min, max) { // min and max included
   return Math.floor(Math.random() * (max - min + 1) + min);
 }
 
@@ -205,7 +205,7 @@ const fetchBT4GRetry = async (url, timesToRetry = 3) => {
         return fetchBT4GRetry(url, timesToRetry);
       }
 
-      body = `Retry exceed for url: ${url} with statusCode: ${statusCode}`; 
+      body = `Retry exceed for url: ${url} with statusCode: ${statusCode}`;
       console.error(body);
     }
 
@@ -220,5 +220,87 @@ const fetchBT4GRetry = async (url, timesToRetry = 3) => {
 };
 
 
+/**
+ * Interal use only. Fetch blob for download.
+ */
+const fetchBlobRetry = async (url, timesToRetry = 3) => {
+  let res = null;
+  let body = null;
+  try {
+    console.info(`fetchBlob url: ${url}`);
+    res = await new Promise((resolve, reject) => {
+      GM.xmlHttpRequest({
+        url,
+        responseType: "blob",
+        onload: resolve,
+        onerror: reject,
+      });
+    });
+    const {
+      response: blob,
+      status: statusCode,
+      statusText,
+    } = res;
+    if(statusCode === 200) {
+      body = blob;
+    } else if(statusCode === 404) {
+      body = `fetchBlob url failed - statusCode: 404, url: ${url}`;
+      console.debug(body);
+    } else {
+      --timesToRetry;
+      if(timesToRetry >= 0) {
+        if(statusCode === 401 || statusCode === 403) { // refresh page
+          console.warn(`session expired for url: ${url}`);
+        } else {
+          console.warn(`unexpected statusCode: ${res.status} when accessing: ${url}`);
+          await sleepMS(randomIntFromInterval(1000, 5000));
+          return fetchBlobRetry(url, timesToRetry);
+        }
+      }
+
+      body = `Retry exceed for url: ${url} with statusCode: ${statusCode}`;
+      console.error(body);
+    }
+
+    return {
+      statusCode,
+      body,
+    };
+  } catch(e) {
+    console.error(e);
+    throw e;
+  }
+};
+
+/**
+ * use the browser's download behavior to the blob to a file in local
+ */
+const downloadBlob = (blob, name) => {
+  const anchor = document.createElement("a");
+  anchor.setAttribute("download", name || "");
+  anchor.href = URL.createObjectURL(blob);
+  anchor.click();
+  setTimeout(_ => {
+    URL.revokeObjectURL(blob);
+    anchor.remove();
+  }, 30000);
+};
+
+/**
+ * download the given URL as a file in local
+ */
+const downloadViaBrowser = async (downloadURL, downloadFileName = '') => {
+  const name = downloadFileName ? downloadFileName : url.match(/[^\/]+$/)[0];
+  const { statusCode, body: blob } = await fetchBlobRetry(downloadURL);
+  if(statusCode != 200) {
+    const msg = `non-200/404 result for URL: ${url}, blob: ${blob}`;
+    console.error(msg);
+    showMsg(`run into error. Please check the console for details! Failed to fetch list`);
+    await sleepMS(4000);
+    throw new Error(msg);
+  }
+  downloadBlob(blob, name);
+  console.log(`Downloaded : ${name}`);
+};
 
 

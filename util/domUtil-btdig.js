@@ -66,8 +66,8 @@ const xPathSelectorAll = (ele, queryArg, contextNode = document) => {
   const nodes = [];
   let node = xPathResult.iterateNext();
   while (node) {
-      nodes.push(node);
-      node = xPathResult.iterateNext();
+    nodes.push(node);
+    node = xPathResult.iterateNext();
   }
   return nodes;
 };
@@ -153,7 +153,7 @@ const extractTorrentInfo = (ele) => {
 
   const torrentCreateTime_txt = innerText(ele.querySelector('span.torrent_age'));
   const torrentCreateTime = extractCreateTime(torrentCreateTime_txt);
-  
+
   const torrentSize = innerText(ele.querySelector('.torrent_size'));
   // hardcoding since there is no such info for this site
   const torrentSeeders = 0;

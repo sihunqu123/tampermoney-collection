@@ -66,8 +66,8 @@ const xPathSelectorAll = (ele, queryArg, contextNode = document) => {
   const nodes = [];
   let node = xPathResult.iterateNext();
   while (node) {
-      nodes.push(node);
-      node = xPathResult.iterateNext();
+    nodes.push(node);
+    node = xPathResult.iterateNext();
   }
   return nodes;
 };
@@ -145,9 +145,9 @@ const extractCreateTime = (str) => {
 
 const extractTorrentInfo = (ele) => {
   const torrentName = innerText(ele.querySelector('.result-resource-title'));
-//const torrentHrefFull = ele.querySelector('.torrent_magnet a').href.trim().substr(MAGNET_PREFIX.length);
-//const torrentHref = torrentHrefFull.match('^[^&]+')[0];
-  const torrentHrefFull = ''; // not exist on current dom, need to fetch from torrentDetailLink 
+  //const torrentHrefFull = ele.querySelector('.torrent_magnet a').href.trim().substr(MAGNET_PREFIX.length);
+  //const torrentHref = torrentHrefFull.match('^[^&]+')[0];
+  const torrentHrefFull = ''; // not exist on current dom, need to fetch from torrentDetailLink
   const torrentHref = ''; // not exist on current dom, need to fetch from torrentDetailLink
 
   const torrentDetailLink = ele.querySelector('.result-resource-title').href;
@@ -157,7 +157,7 @@ const extractTorrentInfo = (ele) => {
   const torrentCreateTime = innerText(ele.querySelector('.result-resource-meta-info > span:nth-of-type(3)'));
 
   const torrentFileCnt = innerText(ele.querySelector('.result-resource-meta-info > span:nth-of-type(2)'));
-  
+
   const torrentSize = innerText(ele.querySelector('.result-resource-meta-info > span:nth-of-type(1)'));
   // hardcoding since there is no such info for this site
   const torrentSeeders = 0;

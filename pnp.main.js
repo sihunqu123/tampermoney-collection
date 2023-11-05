@@ -1,17 +1,22 @@
 
+const MAGNET_LINK = 'magnetLink';
 
 (function() {
   'use strict';
-  console.info(`=================btdig hacked`);
+  console.info(`=================pnp hacked`);
   const serverHOST = '192.168.10.2';
   const serverPORT = 8180;
-  const website = 'btdig';
+  const website = 'bt4g';
   const requestIntervalLow = 1;
   const requestIntervalHigh = 5;
 
   if(inIframe()) return;
 
   const torrents = {
+
+  };
+
+  const torrent6 = {
 
   };
 
@@ -76,40 +81,40 @@
   };
 
   const getPageIndexHeader = (pageIndex) => {
-    return htmlStrToElement(`<div class="pageListheader listItem-common"><div class="headerTxt">Page ${pageIndex} is shown below:</div></div>`);
+    return htmlStrToElement(`<div class="pageListheader">Page ${pageIndex} is shown below:</div>`);
   };
 
   // testaaa();
 
   const getItemParent = () => {
-    const targetUl = document.querySelector("form[action='/search'] + div > div:nth-child(4)");
-    return  targetUl;
+    // const targetUl = xPathSelector(document, "");
+    const targetUl = document.querySelector('#org-repositories > div > div > div.Box > ul');
+    return targetUl;
   };
 
   const itemParent = getItemParent();
 
   // TODO: fix the selector the find the anchor_top
-  itemParent.insertAdjacentHTML('afterbegin', "<div class='pageAnchor listItem-common'></div>");
   const insertPageListHeaderAnchor_top = itemParent.firstElementChild;
   if(!insertPageListHeaderAnchor_top) { // do nothing when there is no result
     return;
   }
   // TODO: fix the selector the find the anchor_bottom
-  itemParent.insertAdjacentHTML('beforeend', "<div class='pageAnchor listItem-common'></div>");
+  itemParent.insertAdjacentHTML('beforeend', "<div class='pageAnchor'>List End</div>");
   const insertPageListHeaderAnchor_bottom = itemParent.lastElementChild;
 
   const getAllIteams = (doc) => {
-    const allItems = Array.from(doc.querySelectorAll("form[action='/search'] + div > div:nth-child(4) > .one_result"));
+    const allItems = Array.from(doc.querySelectorAll('#org-repositories > div > div > div.Box > ul > li'));
     return allItems;
   };
 
   const getAllIteamsEnabled = (doc) => {
-    const allItems = Array.from(document.querySelectorAll(".itemBody"));
+    const allItems = Array.from(doc.querySelectorAll(".itemBody"));
     return allItems;
   };
 
   const getCheckbox = (itemContainer) => {
-    return itemContainer.children[0].children[0];
+    return itemContainer.querySelector('.wb-break-all > input');
   };
 
   const revertCheckbox = (itemContainer) => {
@@ -117,13 +122,40 @@
     checkboxEle.checked = !checkboxEle.checked;
   };
 
-  const getMagnet = (itemContainer) => {
-    return itemContainer.querySelector('.torrent_magnet a').href;
+  const getMagnet = async (itemContainer) => {
+    let magnetLink = itemContainer.getAttribute(MAGNET_LINK);
+    if(magnetLink) { // if it's already fetched, just return the fetched value
+      return magnetLink;
+    }
+
+    // fetch the magnetLink
+    const href = itemContainer.querySelector('a').href;
+
+    // window.location.host
+    // 'bt4gprx.com'
+    const { body: htmlStr, statusCode } = await fetchBT4GRetry(href);
+    if(statusCode === 200) { // some fileDetails might have been removed.
+      const document_ = htmlStrToDocument(htmlStr);
+      // xPathSelector(document, "//a/img[@src='/static/img/magnet.png']/parent::*").href.match(/(?<=\/hash\/).*/)[0]
+      const linkA = xPathSelector(document_, "//a/img[@src='/static/img/magnet.png']/parent::*", document_);
+      if(linkA && linkA.href) {
+        const magnetContent = linkA.href.match(/(?<=\/hash\/)[^?]+/)[0];
+        magnetLink = 'magnet:?xt=urn:btih:' + magnetContent;
+        itemContainer.setAttribute(MAGNET_LINK, magnetLink);
+      } else {
+        console.error(`failed to fetch magnetLink for torrent: ${magnetLink}`);
+      }
+    } else {
+      // throw new Error(`failed to fetch magnetLink for torrent: ${magnetLink}`);
+      console.error(`failed to fetch magnetLink for torrent: ${magnetLink}`);
+    }
+    return magnetLink;
   };
+  window_.getMagnet = getMagnet;
 
   const loadMore = async(searchTxt, orderBy, isForward, currentPageIndex, jumpSize) => {
     const beginIndex = 0; // skip page one since it's already on first page
-    const endIndex = 100; // this site won't load page after this number
+    const endIndex = 70; // this site won't load page after this number
     // const orgName = 'phoenix-core';
 
     // '/search/uncen/bysize/1'
@@ -137,10 +169,8 @@
     let i = isForward ? (currentPageIndex + 1) : (currentPageIndex - 1);
     let document_ = null;
     let pagesToLoad = jumpSize;
-    let baseUrl = `https://www.btdig.com/search?q=${searchTxt}&order=${orderBy}&p=`;
-
+    let baseUrl = `https://github01.hclpnp.com/orgs/${orgName}/repositories?type=all&page=`;
     let url = '';
-
     let newCurrentPage = currentPageIndex;
 
     do {
@@ -152,7 +182,7 @@
       await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
       url = baseUrl + pageNum;
       const { statusCode, body } = await fetchBT4GRetry(url);
-      if(statusCode === 404 || statusCode === 302) { // edge page
+      if(statusCode === 404) { // edge page
         break;
       }
       if(statusCode != 200) {
@@ -164,6 +194,12 @@
       const currentHTML = body;
       const document_ = htmlStrToDocument(currentHTML);
       const listItems = getAllIteams(document_);
+      if(listItems.length === 0 ) { // already reach to the end
+        const edgeMsg = `reached the edge page: ${pageNum}`;
+        console.error(edgeMsg);
+        showMsg(edgeMsg);
+        break;
+      }
       // added into the `page 1`(which is the first page) page.
       // targetUl.appendChild(...LIs);
       if(isForward) {
@@ -173,7 +209,7 @@
           insertPageListHeaderAnchor_bottom.insertAdjacentElement('beforebegin', item);
         });
       } else {
-        // const anchorEle = targetUl.querySelector(":scope > div:nth-child(1)");
+        // const anchorEle = targetUl.querySelector(":scope > div:nth-child(0)");
         //            listItems.forEach(item => {
         //              anchorEle.insertAdjacentElement('beforebegin', item);
         //            });
@@ -195,15 +231,41 @@
     return newCurrentPage;
   };
 
-  /*
-   * Relevance: 0
-   * Age: 2
-   * Size: 3
-   * Files: 4
-   *
-   */
-  const extractParam = (href) => {
-    const matchedStr = href.match(/\?.*/)[0];
+
+  const extractParamPath = (path) => {
+    const arr = path.split('/');
+    if(arr.length === 4) { // order by time, which is the default one. e.g. '/search/uncen/1'
+      const searchTxt = arr[2];
+      const orderBy = '';
+      const pageIndex = parseInt(arr[3], 10);
+      return {
+        searchTxt,
+        orderBy,
+        pageIndex,
+      };
+    } else if(arr.length === 3) {
+      const searchTxt = arr[2];
+      const orderBy = '';
+      const pageIndex = 1;
+      return {
+        searchTxt,
+        orderBy,
+        pageIndex,
+      };
+    } else { // not order by time. e.g. '/search/uncen/bysize/1'
+      const searchTxt = arr[2];
+      const orderBy = arr[3];
+      const pageIndex = parseInt(arr[4], 10);
+      return {
+        searchTxt,
+        orderBy,
+        pageIndex,
+      };
+    }
+  };
+
+  const extractParamSearch = (path) => {
+    const matchedStr = path.match(/\?.*/)[0];
     const queryArr = matchedStr.substr(1).split('&');
 
     const querys = {};
@@ -214,19 +276,23 @@
       const value = arr[1];
       querys[key] = value;
     });
-    const { q, p, order} = querys;
-    const searchTxt = q;
-    const orderBy = order;
-    const pageIndex = p ? parseInt(p) : 0; // start with 0
-
+    const { page } = querys;
+    const pageIndex = page ? parseInt(page) : 1; // start with 1
     return {
-      searchTxt,
-      orderBy,
       pageIndex,
     };
   };
 
-  const { searchTxt, orderBy, pageIndex } = extractParam(window_.location.href + '');
+  let searchTxt = '';
+  let orderBy = null;
+  let pageIndex = 1;
+  const orgName = (window_.location.pathname + '').match(/(?<=\/orgs\/)[^/]+(?=\/repositories)/)[0];
+  if(window_.location.search.indexOf('page=') > -1) { // query is inside location.search
+    ({ pageIndex } = extractParamSearch(window_.location.search + ''));
+  } else { // query is inside path
+    pageIndex = 1;
+    // ({ searchTxt, orderBy, pageIndex } = extractParamPath(window_.location.pathname + ''));
+  }
   let currentPageIndex = pageIndex;
   let currentPageIndexLeft = currentPageIndex;
   let currentPageIndexRight = currentPageIndex;
@@ -261,24 +327,35 @@
       }
       .itemBody {
         background: white;
-        /*        cursor: pointer; */
       }
       .itemBody:hover {
-        background: #d2cce6 !important;
+        background: #d2cce6;
         cursor: pointer;
       }
       .itemBodyDisabled {
-        background: grey !important;
+        background: grey;
       }
       .itemBodyDisabled:hover {
         background: grey;
       }
+      .action-divider {
+        display: inline;
+      }
+      .fetch6FilesList {
+        display: inline;
+      }
+      .keyword4Junk {
+        width: 100px !important;
+      }
+      .removeKeyWordItems {
+        display: inline;
+      }
+      .checkActionItem {
+        display: inline;
+        width: 100px !important;
+      }
       .CountToLoad {
         width: 50px !important;
-      }
-      .itemCheckDiv {
-        display: table-cell;
-        vertical-align: middle !important;
       }
       .refreshDiv {
         display: flex;
@@ -309,16 +386,6 @@
       .refreshDiv .refreshHeader .refreshMsg{
         color: red;
       }
-      .keyword4Junk {
-        width: 100px !important;
-      }
-      .removeKeyWordItems {
-        display: inline;
-      }
-      .checkActionItem {
-        display: inline;
-        width: 100px !important;
-      }
       .IFixedIt {
         height: 100%;
         font-size: 30px;
@@ -328,28 +395,26 @@
         top: 0;
       }
       .pageListheader {
-      }
-      .pageListheader .headerTxt {
-
-        display: flex;
-        position: absolute;
+        width: calc(100vw - 150px);
         border-top-style: ridge;
-        width: 80vw;
-
       }
       .pageAnchor {
-        display: table-row;
-      }
-      .listItem-common {
-        height: 20px;
-
+        width: 80vw;
       }
     `;
 
     if(style.styleSheet){
-        style.styleSheet.cssText=customCSS;
+      style.styleSheet.cssText=customCSS;
     }else{
-        style.appendChild(document.createTextNode(customCSS));
+      style.appendChild(document.createTextNode(customCSS));
+    }
+    document.getElementsByTagName('head')[0].appendChild(style);
+  };
+
+    if(style.styleSheet){
+      style.styleSheet.cssText=customCSS;
+    }else{
+      style.appendChild(document.createTextNode(customCSS));
     }
     document.getElementsByTagName('head')[0].appendChild(style);
   };
@@ -380,18 +445,24 @@
     return true;
   };
 
-  window_.CopyCheckedLink = function() {
+  window_.CopyCheckedLink = async function() {
     console.info(`in CopyCheckedLink`);
     const resultTorrent = [];
     const allItems = getAllIteams(document);
-    allItems.forEach(ele => {
+    for(let i = 0; i < allItems.length; i++) {
+      const ele = allItems[i];
       const checkboxEle = getCheckbox(ele);
       if(checkboxEle.checked) {
-        const newUrl = getMagnet(ele);
-        resultTorrent.push(newUrl);
+        const a = ele.querySelector("a[itemprop='name codeRepository']");
+        const tmp = a.href.replaceAll('https://', 'git@').replace('/', ':');
+        const tmpArr = tmp.split('/');
+        const projectName = tmpArr[tmpArr.length - 1];
+        const retVal = `${orgName} | ${tmp}` + ".git";
+        resultTorrent.push(retVal);
         //            ele.href = newUrl;
       }
-    });
+
+    }
     // console.info(JSON.stringify(resultTorrent));
     console.info(resultTorrent.join('\n'));
     // window_.prompt('The selected links are show below:', resultTorrent.join('\n'));
@@ -444,13 +515,15 @@
 
   };
 
-
-  const patchA = async () => {
+  const patchA = () => {
     // find all a
-    const allItems = Array.from(document.querySelectorAll(".one_result:not([isPatched='true'])"));
+    // const allItems = Array.from(document.querySelectorAll("a[href^='/magnet/']:not([isPatched='true'])"));
+    // const allItems = xPathSelectorAll(document, "//span[contains(concat(' ',normalize-space(@class),' '),' cpill ')]/parent::div[not(@isPatched='true')]");
+    const allItems = Array.from(document.querySelectorAll("#org-repositories > div > div > div.Box > ul > li:not(.itemBody)"));
     allItems.forEach(ele => {
+      const aItem = ele.querySelector('a');
       // add a checkbox for each a
-      ele.insertAdjacentHTML('afterbegin', '<div class="itemCheckDiv"><input type="checkbox" name="itemCheck" value="yes" class="itemCheck" onclick="onItemClick(event); return true;" /></div>');
+      aItem.insertAdjacentHTML('beforebegin', '<input type="checkbox" name="itemCheck" value="yes" class="itemCheck" onclick="onItemClick(event); return true;" />');
       // add class for the checkbox to apply css
       ele.classList.add("itemBody");
       /* */
@@ -462,36 +535,12 @@
           itemOnclickHandler(event, ele);
         }
       }, false);
+
+
       // add mark to tell this a has been patched
       ele.setAttribute('isPatched', 'true');
     });
   };
-
-  const fetchSelectFileList = async() => {
-
-    const allItems = Array.from(document.querySelectorAll(".itemBody:not([isFetched='true'])"));
-    const selectedItem = allItems.filter(ele => {
-      if(getCheckbox(ele).checked) {
-        return true;
-      }
-      return false;
-    });
-    const length = selectedItem.length;
-    for(let i = 0; i < length; i++) {
-      if(i % 10 === 0) {
-        const progress = ((i / length) * 100).toFixed(2);
-        showMsg(`fetch filelist inprogress... ${progress}%`);
-      }
-      const ele = selectedItem[i];
-      const torrentInfo = extractTorrentInfo(ele);
-      await fetchTorrentDetails(torrentInfo);
-      torrents[torrentInfo.torrentHref] = torrentInfo;
-      await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
-      ele.setAttribute('isFetched', 'true');
-    }
-    return length;
-  };
-
 
   window_.loadToPage1 = async function(event) {
     console.info(`in loadToPage1();`);
@@ -536,201 +585,50 @@
     patchA();
     return true;
   };
-  window_.fetchFileList = async function(_this) {
-    console.info(`in fetchFileList();`);
-    const length = await fetchSelectFileList();
-    showMsg(`Fetched the fileList for ${length} torrent. ^_^`);
-    return true;
-  };
-  window_.postToBackend = async function(_this) {
-    console.info(`in postToBackend();`);
-    // console.info(JSON.stringify(torrents));
-    const url = `http://${serverHOST}:${serverPORT}/add-torrent`;
-    const postData = {
-      website,
-      torrents,
-    };
-
-    //    debugger;
-    showMsg(`postToBackend start... ^_^`);
-    const { statusCode, body } = await postRetry(url, postData);
-    console.info(`postResponse: statusCode: ${statusCode}, body: ${body}`);
-    if(statusCode === 200) {
-      copyToClipboard(body);
-      const insertedItems_thisTime = body.split('\n');
-      showMsg(`${insertedItems_thisTime.length} new items added, and they has been copied to Clipboard! ^_^`);
-      return true;
-    }
-    const endMsg = `postToBackend failed - statusCode: ${statusCode}, body: ${body}`;
-    console.info(endMsg);
-    showMsg(`${endMsg}`);
-    return false;
-  };
-
-  /**
-   * remove items that contains given keyword(in the input keyword4Junk) in title
-   */
-  window_.removeKeyWordItemsImt = async function(criteria, isReg) {
-    // get all items
-    const allItems = Array.from(document.querySelectorAll(".itemBody"));
-    // filter itmes that contains given text
-    const itemsToHandle = allItems.filter(ele => {
-      const itemText = ('' + ele.textContent).trim().toLowerCase();
-      if(isReg) {
-
-        if(new RegExp(criteria).test(itemText)) {
-          return true;
-        }
-      } else {
-        if(itemText.indexOf(('' + criteria).toLowerCase()) > -1) {
-          return true;
-        }
-      }
-      return false;
-    });
-    // disable those junk items
-    const length = itemsToHandle.length;
-    for(let i = 0; i < length; i++) {
-      const ele = itemsToHandle[i];
-      ele.classList.remove("itemBody");
-      ele.classList.add("itemBodyDisabled");
-    }
-    return length;
-  };
-
-  /**
-   * remove items that contains given keyword(in the input keyword4Junk) in title
-   */
-  window_.removeKeyWordItems = async function(_this) {
-    showMsg(`removeKeyWordItems start... ^_^`);
-    const criteria = _this.previousElementSibling.value;
-    const retVal = removeKeyWordItemsImt(criteria, false);
-    showMsg(`removeKeyWordItems done... ^_^`);
-    return retVal;
-  };
-  /**
-   * remove items that contains given reg(in the input keyword4Junk) in title
-   */
-  window_.removeRegItems = async function(_this) {
-    showMsg(`removeRegItems start... ^_^`);
-    const criteria = _this.previousElementSibling.previousElementSibling.value;
-    const retVal = removeKeyWordItemsImt(criteria, true);
-    showMsg(`removeRegItems done... ^_^`);
-    return length;
-  };
-  /**
-   * remove items that less than given size(in the input sizeThrottle)
-   */
-  window_.removeSmallItems = async function(_this) {
-    showMsg(`removeSmallItems start... ^_^`);
-    const criteria = Number.parseInt(_this.previousElementSibling.value, 10);
-    const allItems = Array.from(document.querySelectorAll(".itemBody"));
-    const itemsToHandle = allItems.filter(ele => {
-      const torrentInfo = extractTorrentInfo(ele);
-      if(torrentInfo.torrentSizeInMB < criteria) {
-        return true;
-      }
-      return false;
-    });
-    const length = itemsToHandle.length;
-    for(let i = 0; i < length; i++) {
-      const ele = itemsToHandle[i];
-      ele.classList.remove("itemBody");
-      ele.classList.add("itemBodyDisabled");
-    }
-    showMsg(`removeSmallItems done... ^_^`);
-    return length;
-  };
-
-  const getSuffix = (i) => {
-    const retVal = [];
-    if (i < 10) {
-      retVal.push(`0000${i}`, `000${i}`, `0${i}`, `00${i}`, i);
-    } else if (i < 100) {
-      retVal.push(`000${i}`, `00${i}`, `0${i}`, i);
-    } else if (i < 1000) {
-      retVal.push(`00${i}`, `0${i}`, i);
-    } else if (i < 10000) {
-      retVal.push(`0${i}`, i);
-    } else {
-      retVal.push(i);
-    }
-    return retVal;
-  };
-  //
-  // gunm00046
-
-  const do1Index = async (i) => {
-    const isForward = true;
-    const jumpSize = 1;
-    const suffixes = getSuffix(i);
-    for (let j = 0; j < suffixes.length; j++) {
-      const suffix = suffixes[j];
-      const querytxt = `${searchTxt}${suffix}`;
-      try {
-        const newIndex = await loadMore(querytxt, orderBy, isForward, 0, jumpSize);
-      } catch (e) {
-        // console.debug(`${url} not passed`);
-      }
-      await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
-    }
-    return true;
-  };
-
-  window_.qryWithPrefix0 = async function(_this) {
-    showMsg(`qryWithPrefix0 start... ^_^`);
-    const start = 1;
-    // const end = 6;
-    const end = Number.parseInt(_this.previousElementSibling.value, 10);
-
-    for (let i = start; i < end; i++) {
-      showMsg(`qryWithPrefix0 inprogress... ${i}~${end}`);
-      await do1Index(i);
-      await sleepMS(1000);
-    }
-
-    // console.info(`result: ${JSON.stringify(result)}`);
-    console.info('done');
-
-    showMsg(`qryWithPrefix0 done... ^_^`);
-    return true;
-  };
-
 
   const checkActionBtns = `
-    <input type="button" name="allCheck" value="Check All" class="allCheck" onClick="allCheck()" />
-<input type="button" name="invertCheck" value="Invert Check" class="invertCheck" onClick="invertCheck()" />
-<input type="button" name="CopyCheckedLink" value="CopyCheckedLink" class="CopyCheckedLink" onClick="CopyCheckedLink()" />
-<input type="button" name="fetchFileList" value="fetchFileList" class="fetchFileList" onClick="fetchFileList()" />
-<input type="button" name="postToBackend" value="postToBackend" class="postToBackend" onClick="postToBackend()" />
+    <input type="button" name="allCheck" value="Check All" class="allCheck checkActionItem" />
+<input type="button" name="invertCheck" value="Invert Check" class="invertCheck checkActionItem" />
+<input type="button" name="CopyCheckedLink" value="CopyCheckedLink" class="CopyCheckedLink checkActionItem" />
 <div class="action-divider">|</div>
-<input type="text" id="keyword4Junk" value="keyword4Junk" class="keyword4Junk checkActionItem" />
-<input type="button" name="removeKeyWordItems" value="removeKeyWordItems" class="removeKeyWordItems checkActionItem" onClick="removeKeyWordItems(this)" />
-<input type="button" name="removeRegItems" value="removeRegItems" class="removeRegItems checkActionItem" onClick="removeRegItems(this)" />
-<input type="text" id="sizeThrottle" value="sizeThrottleInMB" class="sizeThrottle checkActionItem" />
-<input type="button" name="removeSmallItems" value="removeSmallItems" class="removeSmallItems checkActionItem" onClick="removeSmallItems(this)" />
-<input type="text" id="qryWithPrefix0End" value="qryWithPrefix0End" class="qryWithPrefix0End checkActionItem" />
-<input type="button" name="qryWithPrefix0" value="qryWithPrefix0" class="qryWithPrefix0 checkActionItem" onClick="qryWithPrefix0(this)" />
-  `;
+    `;
 
   const loadBtns = `
 <br />
-<input type="button" name="loadToPage1" value="loadToFirstPage" class="loadPages" onClick="loadToPage1()" />
-<input type="button" name="loadPrevPages" value="loadPrevPages" class="loadPages" onClick="loadPrevPages(this)" />
+<input type="button" name="loadToPage1" value="loadToFirstPage" class="loadPages" />
+<input type="button" name="loadPrevPages" value="loadPrevPages" class="loadPages" />
 <input type="text" id="CountToLoad" value="5" class="CountToLoad" />
-<input type="button" name="loadNextPages" value="loadNextPages" class="loadPages" onClick="loadNextPages(this)" />
-<input type="button" name="loadToLastPage" value="loadToLastPage" class="loadPages" onClick="loadToLastPage()" />
-  `;
+<input type="button" name="loadNextPages" value="loadNextPages" class="loadPages" />
+<input type="button" name="loadToLastPage" value="loadToLastPage" class="loadPages" />
+    `;
 
 
-  // TODO
-  insertPageListHeaderAnchor_top.insertAdjacentElement('afterend', getPageIndexHeader(currentPageIndex));
+  //  [
+  //    'allCheck', 'invertCheck', 'CopyCheckedLink',
+  //    'loadToPage1', 'loadPrevPages', 'loadNextPages', 'loadToLastPage',
+  //  ].forEach(eventName
 
-  document.querySelector("form[action='/search'] + div > div:nth-child(1)").insertAdjacentHTML('afterbegin', checkActionBtns);
-  document.querySelector("form[action='/search'] + div > div:nth-child(3)").insertAdjacentHTML('afterbegin', loadBtns);
+  //  );
 
-  document.querySelector("form[action='/search'] + div > div:last-child").insertAdjacentHTML('afterbegin', checkActionBtns);
-  document.querySelector("form[action='/search'] + div > div:last-child").insertAdjacentHTML('beforeend', loadBtns);
+  insertPageListHeaderAnchor_top.insertAdjacentElement('beforebegin', getPageIndexHeader(currentPageIndex));
+
+  document.querySelector("form[data-autosearch-results-container='org-repositories']").insertAdjacentHTML('beforebegin', checkActionBtns);
+
+  const paginationEle = document.querySelector('.pagination');
+  if(paginationEle) {
+    document.querySelector("form[data-autosearch-results-container='org-repositories']").insertAdjacentHTML('beforeend', loadBtns);
+    paginationEle.insertAdjacentHTML('beforebegin', checkActionBtns);
+    paginationEle.insertAdjacentHTML('beforeend', loadBtns);
+  }
 
   patchA();
+
+  Array.from(document.querySelectorAll("input[name='allCheck']")).forEach(ele => ele.onclick = allCheck);
+  Array.from(document.querySelectorAll("input[name='invertCheck']")).forEach(ele => ele.onclick = invertCheck);
+  Array.from(document.querySelectorAll("input[name='CopyCheckedLink']")).forEach(ele => ele.onclick = CopyCheckedLink);
+  Array.from(document.querySelectorAll("input[name='loadToPage1']")).forEach(ele => ele.onclick = loadToPage1.bind(null, ele));
+  Array.from(document.querySelectorAll("input[name='loadPrevPages']")).forEach(ele => ele.onclick = loadPrevPages.bind(null, ele));
+  Array.from(document.querySelectorAll("input[name='loadNextPages']")).forEach(ele => ele.onclick = loadNextPages.bind(null, ele));
+  Array.from(document.querySelectorAll("input[name='loadToLastPage']")).forEach(ele => ele.onclick = loadToLastPage.bind(null, ele));
+
 })();

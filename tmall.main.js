@@ -196,7 +196,7 @@
         z-index: 9999;
         width: 90vw;
         height: 90vh;
-        background-color: #547f52;    
+        background-color: #547f52;
         opacity: 0.9;
         margin: 5vh 5vw;
         left: 0px;

@@ -65,8 +65,8 @@ const xPathSelectorAll = (ele, queryArg, contextNode = document) => {
   const nodes = [];
   let node = xPathResult.iterateNext();
   while (node) {
-      nodes.push(node);
-      node = xPathResult.iterateNext();
+    nodes.push(node);
+    node = xPathResult.iterateNext();
   }
   return nodes;
 };
@@ -116,9 +116,10 @@ const extractTorrentInfo = async (ele) => {
   const torrentName = ele.querySelector('h5:nth-child(1)').title || innerText(ele.querySelector('h5:nth-child(1)'));
   const torrentSiteUNID= ele.querySelector('h5:nth-child(1) > a').href.match(/(?<=\/magnet\/)[^/]+$/g)[0];
   const tmpVal = await window_.getMagnet(ele);
-  const torrentHref = tmpVal.substr(20); // remvoe the prefix 'magnet:?xt=urn:btih:'
+  const torrentHref = tmpVal ? tmpVal.substr(20) : ''; // remvoe the prefix 'magnet:?xt=urn:btih:'
   const torrentHrefFull = torrentHref;
-  const torrentDetailLink = `https://bt4g.org/magnet/${torrentSiteUNID}`;
+  // const torrentDetailLink = `https://bt4g.org/magnet/${torrentSiteUNID}`;
+  const torrentDetailLink = `https://${window_.location.host}/magnet/${torrentSiteUNID}`;
   const torrentType = innerText(ele.querySelector(':scope > span:nth-of-type(1)'));
 
   const torrentCreateTime = innerText(ele.querySelector(':scope > span:nth-of-type(2) > b'));
@@ -224,7 +225,7 @@ const mergeFileList = (ele, files) => {
   const containerEle = currentFileLis[0].parentElement;
   listToAdd.forEach((itemToAdd) => {
     const { fileName, extension, fileSize } = itemToAdd;
-      
+
     const newItem = `
     <li>${fileName}${extension}&nbsp; <span class="lightColor">${fileSize}</span> </li>
     `;
