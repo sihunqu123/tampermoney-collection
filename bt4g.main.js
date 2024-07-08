@@ -169,7 +169,12 @@ const MAGNET_LINK = 'magnetLink';
     let document_ = null;
     let pagesToLoad = jumpSize;
     // let baseUrl = `https://bt4g.org/search/${searchTxt}/`;
-    let baseUrl = `https://bt4gprx.com/search?q=${searchTxt}&orderby=${orderBy}&p=`;
+    let baseUrl = null;
+    if(baseUrl) {
+      baseUrl = `https://bt4gprx.com/search?q=${searchTxt}&orderby=${orderBy}&p=`;
+    } else {
+      baseUrl = `https://bt4gprx.com/search?q=${searchTxt}&p=`;
+    }
     let url = '';
     let newCurrentPage = currentPageIndex;
 
@@ -272,7 +277,7 @@ const MAGNET_LINK = 'magnetLink';
     });
     const { q, p, orderby } = querys;
     const searchTxt = q;
-    const orderBy = orderby;
+    const orderBy = orderby || '';
     const pageIndex = p ? parseInt(p) : 1; // start with 1
     return {
       searchTxt,

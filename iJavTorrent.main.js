@@ -3,7 +3,7 @@ const MAGNET_LINK = 'magnetLink';
 
 (function() {
   'use strict';
-  console.info(`=================PaXiShi hacked`);
+  console.info(`=================iJavTorrent hacked`);
   const serverHOST = '192.168.10.2';
   const serverPORT = 8180;
   const website = 'bt4g';
@@ -20,71 +20,17 @@ const MAGNET_LINK = 'magnetLink';
 
   };
 
-
-  const postToDB = async (url, data) => {
-
-    /*
-        const formData = new FormData();
-
-        const keys = Object.keys(data);
-        keys.forEach(key => {
-            formData.append(key, data[key]);
-        });
-        */
-    var formData = new FormData();
-    formData.append('website', website);
-    formData.append('torrents', torrents);
-
-    /***/
-    const response = await fetch(url, {
-      method: 'POST',
-      body: formData,
-    });
-
-    return response;
-
-    /*
-        GM_xmlhttpRequest ({
-            method: "POST",
-            url,
-            onload: function (response) {
-                console.info(`xml get down`);
-                console.log (response.responseText);
-            }
-        });
-
-
-        console.info(`before xml get down`);
-        GM_xmlhttpRequest ({
-            method:     "POST",
-            url,
-            data:       formData,
-            binary: 		true,
-            onload:     function (response) {
-                console.info(`xml get down`);
-                console.log (response.responseText);
-            },
-        });
-        */
-  };
+  const baseURL = window_.location.href.match(/^.*page=/)[0];
 
   const getAllIteams = (doc) => {
-    const allItems = Array.from(doc.querySelectorAll("#waterfall > li"));
+    const allItems = Array.from(document.querySelectorAll("a[href^='magnet']"));
+// console.info(Array.from(document.querySelectorAll("a[href^='magnet']")).join('\n'));
     return allItems;
   };
 
   const getAllIteamsEnabled = (doc) => {
     const allItems = Array.from(doc.querySelectorAll(".itemBody"));
     return allItems;
-  };
-
-  const getCheckbox = (itemContainer) => {
-    return itemContainer.querySelector('.wb-break-all > input');
-  };
-
-  const revertCheckbox = (itemContainer) => {
-    const checkboxEle = getCheckbox(itemContainer);
-    checkboxEle.checked = !checkboxEle.checked;
   };
 
   const getMagnet = async (itemContainer) => {
@@ -120,89 +66,6 @@ const MAGNET_LINK = 'magnetLink';
 
   const failedList = [];
 
-  const extractTorrentZipInfo = async (ele, pageIndex) => {
-    const itemURL = ele.querySelector(":scope > div > a").href;
-    const itemTitle = ele.querySelector(":scope > div > a > img").getAttribute("alt");
-    let imageURL = ele.querySelector(":scope > div > a > img").getAttribute("src");
-    console.info(`itemTitle: ${itemTitle}, imageURL: ${imageURL}, itemURL: ${itemURL}`);
-    const { statusCode, body } = await fetchBT4GRetry(itemURL);
-
-    if(statusCode === 404) { // edge page
-      console.error(`non-200/404 result: ${body}`);
-      const msg = `run into error. Please check the console for details! The taregt page does NOT exist!`;
-      showMsg(msg);
-      await sleepMS(4000);
-      throw new Error();
-    }
-    if(statusCode != 200) {
-      console.error(`non-200/404 result: ${body}`);
-      const msg = `run into error. Please check the console for details!`;
-      showMsg(msg);
-      await sleepMS(4000);
-      throw new Error();
-    }
-
-
-    const currentHTML = body;
-    const document_ = htmlStrToDocument(currentHTML);
-    const imgEle = document_.querySelector("#postlist > div:nth-child(3) td[id^='postmessage_'] img:last-of-type");
-    if(imgEle) {
-      const imgSrc = imgEle.getAttribute('src');
-      if(imgSrc) {
-        imageURL = imgSrc;
-      } else {
-        imageURL = imgEle.getAttribute('file');
-      }
-    }
-    const nodes = document_.querySelector("#postlist > div:nth-child(3) td[id^='postmessage_']").childNodes;
-    let zipDownloadURL = '';
-    for(let i = 0; i < nodes.length; i++) {
-      // document.querySelectorAll("#postlist > div:nth-child(3) td[id^='postmessage_']")[0].childNodes[2].textContent.match(/(?<=.*下载地址[:：]?\s*)http[^\s]+/)
-      const childNode = nodes[i];
-      if(childNode.nodeType === 3) { // which is the text node
-        const matchRes = childNode.textContent.match(/(?<=.*下载地址[:：]?\s*)http[^\s]+/);
-        if(matchRes) {
-          zipDownloadURL = matchRes[0];
-          break;
-        }
-      }
-    }
-
-    const retVal = {
-      imageURL,
-      itemTitle,
-      itemURL,
-      zipDownloadURL,
-      pageIndex,
-    };
-
-    if(zipDownloadURL) {
-      const successMsg = `extracted ${itemTitle}:\n ${JSON.stringify(retVal, null, 2)}, pageIndex: ${pageIndex}`;
-      showMsg(successMsg);
-      console.info(successMsg);
-      // refer: https://github.com/Tampermonkey/tampermonkey/issues/1113
-
-      try {
-        await downloadViaBrowser(imageURL, itemTitle + '.jpg');
-        showMsg(`Downloaded image for: ${itemTitle}, pageIndex: ${pageIndex}`);
-        await downloadViaBrowser(zipDownloadURL, itemTitle + '.rar');
-        showMsg(`Downloaded zip for: ${itemTitle}, pageIndex: ${pageIndex}`);
-      } catch(e) {
-        const errMsg = `Failed to download for: ${itemTitle}, pageIndex: ${pageIndex}`;
-        showMsg(errMsg);
-        console.error(errMsg);
-        failedList.push(retVal);
-      }
-    } else {
-      const msg = `Failed to extra the zipDownloadInfo for ${itemTitle}, pageIndex: ${pageIndex}`;
-      console.error(msg);
-      failedList.push(retVal);
-      // throw new Error(msg);
-    }
-
-    return retVal;
-  };
-
   /**
    * @searchTxt ignored
    * @orderBy ignored
@@ -216,24 +79,16 @@ const MAGNET_LINK = 'magnetLink';
     const endIndex = 70; // this site won't load page after this number
 
     // '/search/uncen/bysize/1'
-    //
-
-    // https://mail.bilibb.shop/forum-127-1.html
-    // https://mail.bilibb.shop/forum-127-12.html
 
     // https://m.x11x.lol/forum.php?mod=forumdisplay&fid=127&page=2
-
-    const downloadHost = window_.location.hostname;
-
     let i = currentPageIndex;
     let document_ = null;
     let pagesToLoad = jumpSize;
-    // let baseUrl = `https://m.x11x.lol/forum.php?mod=forumdisplay&fid=127&page=`;
-    let baseUrl = `https://${downloadHost}/forum.php?mod=forumdisplay&fid=127&page=`;
-    // let baseUrl = `https://mail.bilibb.shop/forum-127-`;
+    // let baseUrl = `https://ijavtorrent.com/tag/8kvr-2407?page=`;
+    let baseUrl = baseURL;
     let url = '';
     let newCurrentPage = currentPageIndex;
-    const allZipList = [];
+    let allZipList = [];
 
     const fetchItems = [];
 
@@ -247,7 +102,6 @@ const MAGNET_LINK = 'magnetLink';
       }
       await sleepMS(randomIntFromInterval(requestIntervalLow, requestIntervalHigh));
       url = baseUrl + pageNum;
-      // url = baseUrl + pageNum + '.html';
       const { statusCode, body } = await fetchBT4GRetry(url);
       if(statusCode === 404) { // edge page
         break;
@@ -268,13 +122,14 @@ const MAGNET_LINK = 'magnetLink';
         break;
       }
 
-      for(let j = 0; j < listItems.length; j++) {
-        const listItem = listItems[j];
-        const torrentZipInfo = await extractTorrentZipInfo(listItem, pageNum);
-        allZipList.push(torrentZipInfo);
-        // TODO: remove this break when all test work done
-        // break;
-      }
+      allZipList = allZipList.concat(listItems);
+//    for(let j = 0; j < listItems.length; j++) {
+//      const listItem = listItems[j];
+//      const torrentZipInfo = await extractTorrentZipInfo(listItem, pageNum);
+//      allZipList.push(torrentZipInfo);
+//      // TODO: remove this break when all test work done
+//      // break;
+//    }
 
 
 
@@ -282,12 +137,8 @@ const MAGNET_LINK = 'magnetLink';
       isForward ? i++ : i--;
     } while(true);
 
-    console.info(`allZipList: \n` + JSON.stringify(allZipList));
-    console.info(`allImgLink: \n` + allZipList.map(item => item.imageURL).join('\n'));
-    console.info(`allzipink: \n` + allZipList.map(item => item.zipDownloadURL).join('\n'));
-    console.info(`failedList: \n` + JSON.stringify(failedList));
-    console.info(`failedImgLink: \n` + failedList.map(item => item.imageURL).join('\n'));
-    console.info(`failedZipink: \n` + failedList.map(item => item.zipDownloadURL).join('\n'));
+    console.info('all items: ');
+    console.info(allZipList.join('\n'));
     showMsg('done');
     return newCurrentPage;
   };
@@ -412,49 +263,6 @@ const MAGNET_LINK = 'magnetLink';
   };
   loadCustomStyle();
 
-
-  window_.allCheck = () => {
-    console.info(`in allCheck`);
-    getAllIteamsEnabled(document).forEach(ele => {
-      getCheckbox(ele).checked = true;
-    });
-  };
-
-  window_.onItemClick = function(event) {
-    console.info(`in onItemClick`);
-    // this.checked = !this.checked;
-    if(event) {
-      // event.preventDefault();
-    }
-    return true;
-  };
-
-  window_.CopyCheckedLink = async function() {
-    console.info(`in CopyCheckedLink`);
-    const resultTorrent = [];
-    const allItems = getAllIteams(document);
-    for(let i = 0; i < allItems.length; i++) {
-      const ele = allItems[i];
-      const checkboxEle = getCheckbox(ele);
-      if(checkboxEle.checked) {
-        const a = ele.querySelector("a[itemprop='name codeRepository']");
-        const tmp = a.href.replaceAll('https://', 'git@').replace('/', ':');
-        const tmpArr = tmp.split('/');
-        const projectName = tmpArr[tmpArr.length - 1];
-        const retVal = `${tmp}` + ".git";
-        resultTorrent.push(retVal);
-        //            ele.href = newUrl;
-      }
-
-    }
-    // console.info(JSON.stringify(resultTorrent));
-    console.info(resultTorrent.join('\n'));
-    // window_.prompt('The selected links are show below:', resultTorrent.join('\n'));
-    // window_.navigator.clipboard.writeText(resultTorrent.join('\n'));
-    copyToClipboard(resultTorrent.join('\n'));
-    showMsg(`Copied ${resultTorrent.length} items to Clipboard! ^_^`);
-  };
-
   //  const handleOnePage = async function() {
   //
   //  };
@@ -497,8 +305,7 @@ toPage: <input type="text" name="CountToLoad" value="2" class="CountToLoad" />
   //  );
 
 
-  // document.querySelector("span#visitedforums").insertAdjacentHTML('beforebegin', checkActionBtns);
-  document.querySelector("#pgt").insertAdjacentHTML('beforebegin', checkActionBtns);
+  document.querySelector("main>.container-fluid .second-main h1").insertAdjacentHTML('beforeend', checkActionBtns);
 
   //  const paginationEle = document.querySelector('.pagination');
   //  if(paginationEle) {

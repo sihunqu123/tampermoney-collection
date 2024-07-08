@@ -240,6 +240,7 @@ const fetchBT4GRetry = async (url, timesToRetry = 3) => {
       body,
     };
   } catch(e) {
+    console.warn(`unexpected error when accessing: ${url}`);
     console.info(e);
     throw e;
   }

@@ -178,7 +178,7 @@ function randomIntFromInterval(min, max) { // min and max included
 
 // randomIntFromInterval(1, 6)
 
-const fetchBT4GRetry = async (url, timesToRetry = 3) => {
+const fetchBT4GRetry = async (url, timesToRetry = 10) => {
   let res = null;
   let body = null;
   try {
@@ -201,7 +201,7 @@ const fetchBT4GRetry = async (url, timesToRetry = 3) => {
           return fetchBT4GRetry(url, timesToRetry);
         }
         console.warn(`unexpected statusCode: ${res.status} when accessing: ${url}`);
-        await sleepMS(randomIntFromInterval(1000, 5000));
+        await sleepMS(randomIntFromInterval(20000, 50000));
         return fetchBT4GRetry(url, timesToRetry);
       }
 
@@ -214,6 +214,7 @@ const fetchBT4GRetry = async (url, timesToRetry = 3) => {
       body,
     };
   } catch(e) {
+    console.warn(`unexpected error when accessing: ${url}`);
     console.info(e);
     throw e;
   }
