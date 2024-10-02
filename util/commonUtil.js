@@ -46,6 +46,9 @@ const showMsg = (str) => {
       clearTimeout(timeoutId);
   }, false);
   document.body.appendChild(wrapper);
+
+  // also print to console
+  console.info(str);
 };
 
 
@@ -171,6 +174,9 @@ const sleepMS = (timeInMS) => new Promise((resolve) => {
   }, timeInMS);
 });
 
+const sleepInMS = sleepMS;
+
+
 
 function randomIntFromInterval(min, max) { // min and max included
   return Math.floor(Math.random() * (max - min + 1) + min);
@@ -224,7 +230,7 @@ const fetchBT4GRetry = async (url, timesToRetry = 10) => {
 /**
  * Interal use only. Fetch blob for download.
  */
-const fetchBlobRetry = async (url, timesToRetry = 3) => {
+const fetchBlobRetry = async (url, timesToRetry = 3, headers = {}) => {
   let res = null;
   let body = null;
   try {
@@ -232,6 +238,7 @@ const fetchBlobRetry = async (url, timesToRetry = 3) => {
     res = await new Promise((resolve, reject) => {
       GM.xmlHttpRequest({
         url,
+        headers,
         responseType: "blob",
         onload: resolve,
         onerror: reject,
@@ -255,7 +262,7 @@ const fetchBlobRetry = async (url, timesToRetry = 3) => {
         } else {
           console.warn(`unexpected statusCode: ${res.status} when accessing: ${url}`);
           await sleepMS(randomIntFromInterval(1000, 5000));
-          return fetchBlobRetry(url, timesToRetry);
+          return fetchBlobRetry(url, timesToRetry, headers);
         }
       }
 
@@ -290,9 +297,9 @@ const downloadBlob = (blob, name) => {
 /**
  * download the given URL as a file in local
  */
-const downloadViaBrowser = async (downloadURL, downloadFileName = '') => {
+const downloadViaBrowser = async (downloadURL, downloadFileName = '', headers = {}) => {
   const name = downloadFileName ? downloadFileName : url.match(/[^\/]+$/)[0];
-  const { statusCode, body: blob } = await fetchBlobRetry(downloadURL);
+  const { statusCode, body: blob } = await fetchBlobRetry(downloadURL, 3, headers);
   if(statusCode != 200) {
     const msg = `non-200/404 result for URL: ${url}, blob: ${blob}`;
     console.error(msg);
@@ -303,5 +310,78 @@ const downloadViaBrowser = async (downloadURL, downloadFileName = '') => {
   downloadBlob(blob, name);
   console.log(`Downloaded : ${name}`);
 };
+
+
+/**
+ * @url e.g. https://ccgga.me/forum.php?mod=viewthread&tid=835193&extra=page%3D1
+ * @return e.g. mod=viewthread&tid=835193&extra=page%3D1 
+ */
+const getQueryFrmURL = (url) => {
+  // return url.match(/(?<=^[^\?]+\?).*$/)[0]; 
+  return url.match(/(?<=tid=)[^&]+/)[0]; 
+};
+
+
+/**
+ *
+ * @param itemURL the url used to avoid download duplicated item
+ * @return true if downloaded successfully; false if the file has already been download in previouse time.
+ * @ throw error if failed to download
+ */
+const downloadViaBrowserNative = async(downloadURL, filename, itemURL = '') => {
+  if(!itemURL) itemURL = downloadURL;
+  const urlQuery = getQueryFrmURL(itemURL);
+  if(downloadedLinks_prev.indexOf(urlQuery) > -1) {
+    // if already downloaded.
+    return false;
+  }
+
+  var x = new XMLHttpRequest();
+  try {
+    x.open('GET', downloadURL, true);
+  } catch(e) {
+    debugger;
+    console.error(`Failed to download filename: ${filename}, itemURL: ${itemURL}, downloadURL: ${downloadURL}`);
+    throw e;
+  }
+  x.responseType = 'blob';
+  let isResponseFile = false;
+  x.onreadystatechange = function () {
+    if (x.readyState == 2) {
+      const ContentDisposition = x.getResponseHeader("Content-Disposition");
+      if(ContentDisposition) {
+        isResponseFile = true;
+      }
+    }
+  };
+
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      console.error('onload事件未在10秒内触发');
+      reject(new Error(`Failed to download file: ${filename}`));
+    }, 10000);
+    x.onload = (e) => {
+      clearTimeout(timeoutId);
+      if(!isResponseFile) {
+        reject(new Error(`Failed to download file: ${filename}`));
+        return;
+      }
+      // debugger;
+      // console.info(e);
+      // console.info(`filename: ${filename}, e.currentTarget.status: ${e.currentTarget.status}`);
+      var url = window.URL.createObjectURL(x.response);
+      const link = document.createElement('a');
+      link.target = '_blank';
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      resolve(true);
+    };
+    x.send();
+  });
+}
+
 
 
