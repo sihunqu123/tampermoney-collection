@@ -1,5 +1,6 @@
 
 const MAGNET_LINK = 'magnetLink';
+const enableRarDownload = true;
 const enableImgDownload = true;
 
 (function() {
@@ -132,14 +133,16 @@ const enableImgDownload = true;
       };
 
       try {
-
-        const downloadRarSuccess = await downloadViaBrowserNative(zipDownloadURL, itemTitle + '.rar', itemURL);
+        let downloadRarSuccess = true;
+        if(enableRarDownload) {
+          downloadRarSuccess = await downloadViaBrowserNative(zipDownloadURL, itemTitle + '.rar', itemURL);
+        }
         if(downloadRarSuccess) {
           // we need to save the itemURL instead, since the zipDownloadURL is always on change
           const urlQuery = getQueryFrmURL(itemURL);
           // add to the array when downloaded
           downloadedLinks.push(urlQuery);
-          showMsg(`Downloaded zip for: ${itemTitle}, pageIndex: ${pageIndex}`);
+          if(enableRarDownload) showMsg(`Downloaded zip for: ${itemTitle}, pageIndex: ${pageIndex}`);
 
           if(enableImgDownload) {
             await downloadViaBrowser(imageURL, itemTitle + '.jpg', downloadHeaders);

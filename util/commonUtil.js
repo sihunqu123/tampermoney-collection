@@ -359,7 +359,7 @@ const downloadViaBrowserNative = async(downloadURL, filename, itemURL = '') => {
     const timeoutId = setTimeout(() => {
       console.error('onload事件未在10秒内触发');
       reject(new Error(`Failed to download file: ${filename}`));
-    }, 10000);
+    }, 20000);
     x.onload = (e) => {
       clearTimeout(timeoutId);
       if(!isResponseFile) {
